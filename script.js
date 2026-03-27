@@ -2,7 +2,7 @@
 
 document.addEventListener("DOMContentLoaded", () => {
     // --- Configuration ---
-    const API_URL = "http://localhost:3000/api";
+    const API_URL = window.location.origin.includes('file://') ? 'http://localhost:3000/api' : '/api';
     
     // --- State Management ---
     let currentUser = JSON.parse(localStorage.getItem("arcade_session_v2")) || null;

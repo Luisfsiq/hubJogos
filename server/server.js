@@ -15,6 +15,31 @@ const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
 
+// Auto-create tables on startup for cloud native deployments
+const initDB = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS user_stats (
+                user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+                tictactoe_wins INTEGER DEFAULT 0,
+                snake_record INTEGER DEFAULT 0,
+                memory_best_time VARCHAR(10) DEFAULT '--:--'
+            );
+        `);
+        console.log("Database initialized successfully.");
+    } catch (err) {
+        console.error("Error initializing database:", err);
+    }
+};
+initDB();
+
 app.use(cors());
 app.use(bodyParser.json());
 
