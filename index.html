@@ -47,9 +47,6 @@
             <li class="active" data-view="home">
                 <span class="icon">🏠</span> <span>Início</span>
             </li>
-            <li data-view="games">
-                <span class="icon">👾</span> <span>Jogos</span>
-            </li>
             <li data-view="profile">
                 <span class="icon">👤</span> <span>Perfil</span>
             </li>
@@ -131,7 +128,12 @@
         <section id="view-profile" class="content-view hidden">
             <div class="profile-card">
                 <div class="profile-header">
-                    <div class="avatar">👤</div>
+                    <div class="avatar-upload-wrapper">
+                        <img id="profile-avatar-img" class="avatar-large hidden" src="" alt="Avatar">
+                        <div id="profile-avatar-emoji" class="avatar-large">👤</div>
+                        <label for="profile-pic-upload" class="upload-btn" title="Alterar foto">📷</label>
+                        <input type="file" id="profile-pic-upload" accept="image/*" class="hidden">
+                    </div>
                     <div class="user-info">
                         <h2 id="profile-username">Visitante</h2>
                         <p id="profile-email">Crie uma conta para salvar progresso</p>

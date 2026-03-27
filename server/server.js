@@ -24,6 +24,7 @@ const initDB = async () => {
                 username VARCHAR(50) UNIQUE NOT NULL,
                 email VARCHAR(255) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
+                profile_pic TEXT,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS user_stats (
@@ -88,10 +89,26 @@ app.post('/api/login', async (req, res) => {
         let stats = statsResult.rows[0] || { tictactoe_wins: 0, snake_record: 0, memory_best_time: '--:--' };
 
         const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
-        res.json({ token, user: { id: user.id, username: user.username, email: user.email, stats } });
+        res.json({ token, user: { id: user.id, username: user.username, email: user.email, profile_pic: user.profile_pic, stats } });
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Upload Profile Picture
+app.post('/api/profile/upload', async (req, res) => {
+    const { profile_pic } = req.body;
+    const token = req.headers['authorization'];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        await pool.query('UPDATE users SET profile_pic = $1 WHERE id = $2', [profile_pic, decoded.id]);
+        res.json({ message: 'Profile picture updated successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to update profile picture' });
     }
 });
 

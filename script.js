@@ -238,6 +238,30 @@ document.addEventListener("DOMContentLoaded", () => {
             profileUsername.textContent = "Visitante";
             profileEmail.textContent = "Modo Convidado ativo";
         }
+
+        const profileAvatarImg = document.getElementById("profile-avatar-img");
+        const profileAvatarEmoji = document.getElementById("profile-avatar-emoji");
+        const sidebarAvatarSm = document.querySelector(".avatar-sm");
+        
+        let pic = currentUser ? currentUser.profile_pic : localStorage.getItem("temp_visitor_pic");
+        if (pic) {
+            if (profileAvatarImg) {
+                profileAvatarImg.src = pic;
+                profileAvatarImg.classList.remove("hidden");
+                profileAvatarEmoji.classList.add("hidden");
+            }
+            if (sidebarAvatarSm) {
+                sidebarAvatarSm.innerHTML = `<img src="${pic}" style="width:100%; height:100%; object-fit:cover; border-radius:50%;">`;
+            }
+        } else {
+            if (profileAvatarImg) {
+                profileAvatarImg.classList.add("hidden");
+                profileAvatarEmoji.classList.remove("hidden");
+            }
+            if (sidebarAvatarSm) {
+                sidebarAvatarSm.innerHTML = `👤`;
+            }
+        }
     }
 
     function renderStats() {
@@ -280,6 +304,39 @@ document.addEventListener("DOMContentLoaded", () => {
 
     gameCards.forEach(card => card.addEventListener("click", () => launchGame(card.getAttribute("data-game"))));
     backToHubBtn.addEventListener("click", () => { if (snakeInterval) clearInterval(snakeInterval); switchView("home"); gameArea.innerHTML = ""; });
+
+    const profilePicUpload = document.getElementById("profile-pic-upload");
+    if (profilePicUpload) {
+        profilePicUpload.addEventListener("change", (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async (ev) => {
+                const base64String = ev.target.result;
+                if (currentUser) {
+                    try {
+                        const token = localStorage.getItem("arcade_token_v2");
+                        await fetch(`${API_URL}/profile/upload`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json", "Authorization": token },
+                            body: JSON.stringify({ profile_pic: base64String })
+                        });
+                        currentUser.profile_pic = base64String;
+                        saveSession();
+                        updateAuthUI();
+                        showToast("Foto de perfil salva!", "success");
+                    } catch (err) {
+                        showToast("Erro ao salvar foto", "error");
+                    }
+                } else {
+                    localStorage.setItem("temp_visitor_pic", base64String);
+                    updateAuthUI();
+                    showToast("Foto de perfil aplicada provisoriamente!", "success");
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
 
     function launchGame(id) {
         switchView("games");
@@ -341,15 +398,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function initSnake() {
         if (snakeInterval) clearInterval(snakeInterval);
-        gameArea.innerHTML = `<div class="snake-wrapper"><div id="snake-overlay" class="game-overlay"><h2>Pronto para Começar?</h2><button id="start-snake-btn" class="primary-btn">Iniciar Jogo</button></div><canvas id="snake-canvas" width="400" height="400" class="game-canvas"></canvas><div class="game-info"><div>Score: <span id="snake-score">0</span></div><div>Recorde: <span>${currentUser ? currentUser.stats.snake : 0}</span></div></div></div>`;
+        gameArea.innerHTML = `<div class="snake-wrapper"><div id="snake-overlay" class="game-overlay"><h2>Pronto para Começar?</h2>
+            <div class="snake-settings">
+                <label>Formato do Mapa</label><br>
+                <select id="snake-grid-select">
+                    <option value="20" selected>Clássico (20x20)</option>
+                    <option value="6">Pequeno (6x6)</option>
+                    <option value="5">Micro (5x5)</option>
+                    <option value="4">Hardcore (4x4)</option>
+                </select>
+            </div>
+        <button id="start-snake-btn" class="primary-btn">Iniciar Jogo</button></div><canvas id="snake-canvas" width="400" height="400" class="game-canvas"></canvas><div class="game-info"><div>Score: <span id="snake-score">0</span></div><div>Recorde: <span>${currentUser ? currentUser.stats.snake : 0}</span></div></div></div>`;
         const canvas = document.getElementById("snake-canvas");
         const ctx = canvas.getContext("2d");
         const scoreDisp = document.getElementById("snake-score");
         const startBtn = document.getElementById("start-snake-btn");
         const overlay = document.getElementById("snake-overlay");
-        let score = 0, snake = [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}], food = {x: 15, y: 15}, dx = 1, dy = 0, nextDx = 1, nextDy = 0;
-        const gridSize = 20, tileCount = 20;
-        startBtn.addEventListener("click", () => { overlay.style.display = "none"; snakeInterval = setInterval(gameLoop, 120); });
+        let score = 0, snake = [], food = {x: 15, y: 15}, dx = 1, dy = 0, nextDx = 1, nextDy = 0;
+        let gridSize = 20, tileCount = 20;
+        startBtn.addEventListener("click", () => { 
+            const sel = document.getElementById("snake-grid-select");
+            tileCount = parseInt(sel.value);
+            gridSize = 400 / tileCount;
+            // Spawn cobra no meio com tamanho 1 para adaptar a grids pequenos
+            snake = [{x: Math.floor(tileCount/2), y: Math.floor(tileCount/2)}];
+            food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+            
+            overlay.style.display = "none"; 
+            snakeInterval = setInterval(gameLoop, 120); 
+        });
         function gameLoop() {
             dx = nextDx; dy = nextDy;
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
