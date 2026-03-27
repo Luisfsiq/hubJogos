@@ -152,6 +152,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function loginSuccess() {
         body.classList.remove("auth-locked");
+        authModal.classList.remove("show"); // Close Modal via class removal
         updateAuthUI();
         renderStats();
         showToast(`Bem-vindo, ${currentUser.username}!`, "success");
@@ -214,15 +215,25 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- UI Logic ---
     function updateAuthUI() {
+        const sidebarUserInfo = document.getElementById("sidebar-user-info");
+        const sidebarUsername = document.getElementById("sidebar-username");
+
         if (currentUser) {
             userDisplayName.textContent = currentUser.username;
             loginTrigger.classList.add("hidden");
+            if(sidebarUserInfo) {
+                sidebarUserInfo.classList.remove("hidden");
+                sidebarUsername.textContent = currentUser.username;
+            }
             logoutBtn.classList.remove("hidden");
             profileUsername.textContent = currentUser.username;
             profileEmail.textContent = currentUser.email;
         } else {
             userDisplayName.textContent = "Convidado";
             loginTrigger.classList.remove("hidden");
+            if(sidebarUserInfo) {
+                sidebarUserInfo.classList.add("hidden");
+            }
             logoutBtn.classList.add("hidden");
             profileUsername.textContent = "Visitante";
             profileEmail.textContent = "Modo Convidado ativo";
