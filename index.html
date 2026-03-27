@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Siqueira Games - O Hub de Jogos Definitivo</title>
+    <meta name="description" content="Acesse os melhores jogos clássicos com uma interface premium e acompanhe seu progresso.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Icons (Lucide or Phosphor-like placeholders) -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dashboard-page auth-locked">
+    <div class="background-anim"></div>
+
+    <!-- Login/Signup Gate (Visible only when not logged in) -->
+    <div id="auth-gate" class="auth-gate-wrapper">
+        <div class="gate-content">
+            <div class="logo large">
+                <span class="icon">🎮</span>
+                <span class="logo-text">Siqueira<span>Games</span></span>
+            </div>
+            <h1>Sua diversão começa aqui.</h1>
+            <p>Faça login ou cadastre-se para acessar os jogos e salvar seu progresso.</p>
+            
+            <div class="gate-actions">
+                <button id="gate-login-btn" class="primary-btn">Entrar na Conta</button>
+                <button id="gate-signup-btn" class="secondary-btn">Criar Nova Conta</button>
+            </div>
+            
+            <div class="visitor-mode">
+                <small>Ou continue como <button id="visitor-btn">Visitante (Sem salvar progresso)</button></small>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar">
+        <div class="logo">
+            <span class="icon">🎮</span>
+            <span class="logo-text">Siqueira<span>Games</span></span>
+        </div>
+        
+        <ul class="nav-links">
+            <li class="active" data-view="home">
+                <span class="icon">🏠</span> <span>Início</span>
+            </li>
+            <li data-view="games">
+                <span class="icon">👾</span> <span>Jogos</span>
+            </li>
+            <li data-view="profile">
+                <span class="icon">👤</span> <span>Perfil</span>
+            </li>
+        </ul>
+
+        <div class="user-control" id="sidebar-auth-section">
+            <button id="nav-login-btn" class="login-trigger">Entrar</button>
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <header class="top-bar">
+            <div id="greeting">Bem-vindo, <span id="user-display-name">Convidado</span>!</div>
+            <div class="stats-overview">
+                <div class="stat-pill">
+                    <span class="label">Total de Vitórias</span>
+                    <span id="global-wins" class="value">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- View: Home / Landing -->
+        <section id="view-home" class="content-view active">
+            <div class="hero">
+                <h1>Sua próxima aventura começa aqui.</h1>
+                <p>Evolua suas habilidades, bata recordes e acompanhe sua jornada gamer.</p>
+            </div>
+            
+            <div class="featured-section">
+                <h2>Jogos em Destaque</h2>
+                <div class="game-grid">
+                    <div class="game-card" data-game="tictactoe">
+                        <div class="card-image tictactoe-bg">#</div>
+                        <div class="card-info">
+                            <h3>Jogo da Velha</h3>
+                            <p>O clássico duelo de X e O com um toque premium.</p>
+                            <button class="play-btn">Jogar Agora</button>
+                        </div>
+                    </div>
+                    <div class="game-card" data-game="snake">
+                        <div class="card-image snake-bg">~</div>
+                        <div class="card-info">
+                            <h3>Snake Retro</h3>
+                            <p>Desafie seus reflexos e cresça até o limite.</p>
+                            <button class="play-btn">Jogar Agora</button>
+                        </div>
+                    </div>
+                    <div class="game-card" data-game="memory">
+                        <div class="card-image memory-bg">?</div>
+                        <div class="card-info">
+                            <h3>Memória Master</h3>
+                            <p>Treine seu cérebro e encontre todos os pares.</p>
+                            <button class="play-btn">Jogar Agora</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- View: Games Container (Where games will be injected) -->
+        <section id="view-games" class="content-view hidden">
+            <div class="game-container-header">
+                <button id="back-to-hub" class="back-btn">← Voltar para o Hub</button>
+                <h2 id="active-game-title">Nome do Jogo</h2>
+            </div>
+            <div id="game-canvas-area" class="game-viewport">
+                <!-- Game content will be loaded here dynamically -->
+            </div>
+        </section>
+
+        <!-- View: Profile -->
+        <section id="view-profile" class="content-view hidden">
+            <div class="profile-card">
+                <div class="profile-header">
+                    <div class="avatar">👤</div>
+                    <div class="user-info">
+                        <h2 id="profile-username">Visitante</h2>
+                        <p id="profile-email">Crie uma conta para salvar progresso</p>
+                    </div>
+                </div>
+                <div class="profile-stats">
+                    <div class="game-stat">
+                        <h4>Jogo da Velha</h4>
+                        <p>Vitórias: <span id="stat-tictactoe">0</span></p>
+                    </div>
+                    <div class="game-stat">
+                        <h4>Snake</h4>
+                        <p>Recorde: <span id="stat-snake">0</span></p>
+                    </div>
+                    <div class="game-stat">
+                        <h4>Memória</h4>
+                        <p>Melhor Tempo: <span id="stat-memory">--:--</span></p>
+                    </div>
+                </div>
+                <button id="logout-btn" class="logout-btn hidden">Sair da Conta</button>
+            </div>
+        </section>
+    </main>
+
+    <!-- Auth Modal -->
+    <div id="auth-modal" class="modal">
+        <div class="modal-content auth-container">
+            <div class="auth-tabs">
+                <button class="auth-tab active" data-tab="login">Login</button>
+                <button class="auth-tab" data-tab="signup">Cadastro</button>
+            </div>
+            
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active">
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <input type="text" id="login-username" required placeholder="Seu nome de usuário">
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="login-password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="primary-btn">Entrar</button>
+                <p class="error-msg" id="login-error"></p>
+            </form>
+
+            <!-- Signup Form -->
+            <form id="signup-form" class="auth-form hidden">
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <input type="text" id="signup-username" required placeholder="Escolha um nome">
+                </div>
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="signup-email" required placeholder="Ex: joao@email.com">
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="signup-password" required placeholder="Mínimo 6 caracteres">
+                </div>
+                <button type="submit" class="primary-btn">Criar Conta</button>
+                <p class="error-msg" id="signup-error"></p>
+            </form>
+            
+            <button class="close-modal-btn">Fechar</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

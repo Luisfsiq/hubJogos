@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: arcade_postgres
+    environment:
+      POSTGRES_USER: arcade_user
+      POSTGRES_PASSWORD: arcade_password
+      POSTGRES_DB: arcade_premium
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+  server:
+    build: .
+    container_name: arcade_server
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://arcade_user:arcade_password@db:5432/arcade_premium
+      JWT_SECRET: arcade_secret_key_12345
+      PORT: 3000
+      FRONTEND_PATH: /app/public
+    volumes:
+      - ../:/app/public
