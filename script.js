@@ -565,23 +565,40 @@ document.addEventListener("DOMContentLoaded", () => {
         const overlay = document.getElementById("snake-overlay");
         let score = 0, snake = [], food = {x: 15, y: 15}, dx = 1, dy = 0, nextDx = 1, nextDy = 0;
         let gridSize = 20, tileCount = 20;
+        let inputQueue = []; // Fila dupla para comandos ultrarrápidos
+
         startBtn.addEventListener("click", () => { 
             const sel = document.getElementById("snake-grid-select");
             tileCount = parseInt(sel.value);
             gridSize = 400 / tileCount;
-            // Spawn cobra no meio com tamanho 1 para adaptar a grids pequenos
+            // Spawn cobra no meio
             snake = [{x: Math.floor(tileCount/2), y: Math.floor(tileCount/2)}];
             food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) };
+            inputQueue = [];
+            dx = 1; dy = 0; nextDx = 1; nextDy = 0;
             
             overlay.style.display = "none"; 
             snakeInterval = setInterval(gameLoop, 120); 
         });
+
         function gameLoop() {
+            // Processa o próximo evento da Queue, de 1 em 1 por frame
+            if (inputQueue.length > 0) {
+                let cmd = inputQueue.shift();
+                if (cmd === "UP" && dy === 0) { nextDx = 0; nextDy = -1; }
+                else if (cmd === "DOWN" && dy === 0) { nextDx = 0; nextDy = 1; }
+                else if (cmd === "LEFT" && dx === 0) { nextDx = -1; nextDy = 0; }
+                else if (cmd === "RIGHT" && dx === 0) { nextDx = 1; nextDy = 0; }
+            }
+            
             dx = nextDx; dy = nextDy;
             const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+            
+            // Paredes ou Canibalismo
             if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount || snake.some(p => head.x === p.x && head.y === p.y)) {
                 clearInterval(snakeInterval); 
                 saveStat('snake', score); 
+                window.onkeydown = null; // Libera EventListener do jogo
                 showGameOverlay("Game Over", `Você fez ${score} pontos!`, initSnake); 
                 return;
             }
@@ -589,20 +606,27 @@ document.addEventListener("DOMContentLoaded", () => {
             if (head.x === food.x && head.y === food.y) { score += 10; scoreDisp.textContent = score; placeFood(); } else snake.pop();
             draw();
         }
+
         function draw() {
             ctx.fillStyle = "#020617"; ctx.fillRect(0,0,400,400);
             snake.forEach((p, i) => { ctx.fillStyle = i === 0 ? "#6366f1" : "rgba(99, 102, 241, 0.6)"; ctx.fillRect(p.x * gridSize + 1, p.y * gridSize + 1, gridSize-2, gridSize-2); });
             ctx.fillStyle = "#ec4899"; ctx.fillRect(food.x * gridSize + 4, food.y * gridSize + 4, gridSize-8, gridSize-8);
         }
+
         function placeFood() { food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) }; if (snake.some(p => p.x === food.x && p.y === food.y)) placeFood(); }
+        
         window.onkeydown = (e) => {
-            if (e.key === "ArrowUp" && dy === 0) { nextDx = 0; nextDy = -1; }
-            if (e.key === "ArrowDown" && dy === 0) { nextDx = 0; nextDy = 1; }
-            if (e.key === "ArrowLeft" && dx === 0) { nextDx = -1; nextDy = 0; }
-            if (e.key === "ArrowRight" && dx === 0) { nextDx = 1; nextDy = 0; }
+            const keys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "s", "a", "d"];
+            if (keys.includes(e.key) && overlay.style.display === "none") {
+                e.preventDefault(); // Inibe rolagem da janela enquanto joga
+                if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") inputQueue.push("UP");
+                if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") inputQueue.push("DOWN");
+                if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") inputQueue.push("LEFT");
+                if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") inputQueue.push("RIGHT");
+            }
         };
 
-        // --- Touch Control For Mobile Swipes ---
+        // --- Touch Control For Mobile Swipes (Melhorado "Joypad Drag") ---
         let touchStartX = 0;
         let touchStartY = 0;
         
@@ -612,29 +636,29 @@ document.addEventListener("DOMContentLoaded", () => {
         }, {passive: false});
 
         canvas.addEventListener('touchmove', function(e) {
-            e.preventDefault(); // Evita scroll do site e refreshes indesejados no mobile
-        }, {passive: false});
+            e.preventDefault(); // Evita scroll vertical nativo
+            if (overlay.style.display !== "none") return;
 
-        canvas.addEventListener('touchend', function(e) {
             let touchEndX = e.changedTouches[0].screenX;
             let touchEndY = e.changedTouches[0].screenY;
             
             let dxSwipe = touchEndX - touchStartX;
             let dySwipe = touchEndY - touchStartY;
             
-            // Registra movimento apenas se o arraste for maior que 20px
-            if (Math.abs(dxSwipe) > 20 || Math.abs(dySwipe) > 20) {
+            // Sensibilidade do Swipe (30px)
+            if (Math.abs(dxSwipe) > 30 || Math.abs(dySwipe) > 30) {
                 if (Math.abs(dxSwipe) > Math.abs(dySwipe)) {
-                    // Clicou e Arrastou para os Lados
-                    if (dxSwipe > 0 && dx === 0) { nextDx = 1; nextDy = 0; }
-                    else if (dxSwipe < 0 && dx === 0) { nextDx = -1; nextDy = 0; }
+                    if (dxSwipe > 0) inputQueue.push("RIGHT");
+                    else if (dxSwipe < 0) inputQueue.push("LEFT");
                 } else {
-                    // Clicou e Arrastou para Cima/Baixo
-                    if (dySwipe > 0 && dy === 0) { nextDx = 0; nextDy = 1; }
-                    else if (dySwipe < 0 && dy === 0) { nextDx = 0; nextDy = -1; }
+                    if (dySwipe > 0) inputQueue.push("DOWN");
+                    else if (dySwipe < 0) inputQueue.push("UP");
                 }
+                // Reseta a âncora para permitir curvas sequenciais s/ tirar o dedo!
+                touchStartX = touchEndX;
+                touchStartY = touchEndY;
             }
-        });
+        }, {passive: false});
 
         draw();
     }
