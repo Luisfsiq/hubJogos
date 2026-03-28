@@ -979,6 +979,26 @@ body.auth-locked .main-content {
     transform: scale(1.05);
 }
 
+/* --- Casino Animations --- */
+.pulse-glow {
+    animation: pulse-glow-anim 1.5s infinite;
+}
+
+@keyframes pulse-glow-anim {
+    0% {
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        transform: scale(1);
+    }
+    50% {
+        box-shadow: 0 0 25px rgba(16, 185, 129, 1);
+        transform: scale(1.05);
+    }
+    100% {
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        transform: scale(1);
+    }
+}
+
 @media (max-width: 768px) {
     body { flex-direction: column; }
     .sidebar { width: 100%; height: auto; flex-direction: row; position: fixed; bottom: 0; top: auto; padding: 1rem; border-right: none; border-top: 1px solid var(--border-color); }
