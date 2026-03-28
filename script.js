@@ -101,8 +101,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const result = await apiRequest("/login", "POST", { username, password });
         if (result) {
             currentUser = { ...result.user, token: result.token };
+            if (!currentUser.stats) {
+                currentUser.stats = { tictactoe: 0, snake: 0, memory: "--:--", blackjack_wins: 0, balance: 1000 };
+            }
             saveSession();
             loginSuccess();
+            syncStats(); // Puxa do Banco de dados e sobrepõe a interface real-time
         } else {
             // Offline fallback simulation
             simulateAuth(username);
@@ -202,7 +206,18 @@ document.addEventListener("DOMContentLoaded", () => {
             currentUser.stats.blackjack_wins += value; // 1 win
             changed = true;
         } else if (game === 'balance') {
-            currentUser.stats.balance += value; // value can be negative or positive
+            let v = parseInt(value);
+            if(isNaN(v)) v = 0;
+            
+            if (typeof currentUser.stats.balance !== 'number' || isNaN(currentUser.stats.balance)) {
+                currentUser.stats.balance = 1000;
+            }
+            currentUser.stats.balance += v; 
+            
+            if (currentUser.stats.balance <= 0) {
+                currentUser.stats.balance = 10000;
+                showToast("Banca zerada! Bônus de resgate (+10.000 SQC) ativado!", "success");
+            }
             changed = true;
         }
 
@@ -941,11 +956,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
         document.getElementById("start-bj-btn").addEventListener("click", () => {
             bet = parseInt(document.getElementById("bj-bet-input").value);
-            if (!currentUser || typeof currentUser.stats.balance === 'undefined') {
+            if (!currentUser || !currentUser.stats || typeof currentUser.stats.balance === 'undefined') {
                 showToast("Faça login (ou entre como convidado) para jogar Cassino.", "error"); return;
             }
-            if (bet > currentUser.stats.balance || bet <= 0) {
-                showToast(`Saldo Insuficiente! Saldo: SQC${currentUser.stats.balance}`, "error"); return;
+            if (isNaN(bet) || bet > currentUser.stats.balance || bet <= 0) {
+                showToast(`Salso Insuficiente ou Inválido!`, "error"); return;
             }
             
             saveStat('balance', -bet); // Remove a aposta
@@ -1091,11 +1106,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 const bet = parseInt(document.getElementById("double-bet-input").value);
                 const colorObj = btn.dataset.color;
                 
-                if (!currentUser || typeof currentUser.stats.balance === 'undefined') {
+                if (!currentUser || !currentUser.stats || typeof currentUser.stats.balance === 'undefined') {
                     showToast("Faça login para apostar.", "error"); return;
                 }
-                if (bet > currentUser.stats.balance || bet <= 0) {
-                    showToast("Saldo Insuficiente!", "error"); return;
+                if (isNaN(bet) || bet > currentUser.stats.balance || bet <= 0) {
+                    showToast("Saldo Insuficiente ou Aposta Inválida!", "error"); return;
                 }
 
                 saveStat('balance', -bet); 
