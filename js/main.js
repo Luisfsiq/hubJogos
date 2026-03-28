@@ -498,3 +498,5 @@ document.addEventListener("DOMContentLoaded", () => {
             <div style="text-align:right;">${card.v}</div>
         </div>`;
     }
+
+});
