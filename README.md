@@ -17,10 +17,12 @@ O **Siqueira Games** é uma plataforma Full-Stack de minigames retrô, desenhada
 ## 🕹️ Funcionalidades
 
 - **Auth Gate Dinâmico:** Telas de Login e Cadastro integradas à API, salvando senhas com Hashing Criptográfico (`bcryptjs`).
-- **3 Jogos Clássicos Nativos:**
-  - Jogo da Velha (Modo dinâmico de redimensionamento e identificação de empate).
-  - Snake Retro (Pontuação em tela, canvas fluido).
-  - Memória Master (Animações de cartas em CSS 3D).
+- **5 Jogos Integrados:**
+  - **Jogo da Velha** (Modo dinâmico de redimensionamento e identificação de empate + I.A.).
+  - **Snake Retro** (Pontuação em tela, canvas fluido). Sistema de controles com **Fila de Inputs (Queue)** perfeita anti-ghosting e detecção de Swipes (Arrastar) em dispositivos Mobile sem precisar tirar o dedo da tela!
+  - **Memória Master** (Animações de cartas em CSS 3D e múltiplos níveis de Grade).
+  - **BlackJack 21** ♠️ (Simulador contra a banca, apostando moedas do saldo local).
+  - **Roleta Double** 🔴⚪⚫ (Roda animada baseada nos famosos Double de cassino, prêmios variando de 2x a 14x).
 - **Interface Imersiva:** Design System com animações suaves, paleta neon-índigo, popups (`Toasts`) orgânicos para erros e feedback visual.
 - **Docker-Ready:** Configurado nativamente com `docker-compose` para orquestração da API Node.JS junto com o banco PostgreSQL e os arquivos estáticos.
 

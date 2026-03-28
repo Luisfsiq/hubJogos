@@ -615,14 +615,31 @@ document.addEventListener("DOMContentLoaded", () => {
 
         function placeFood() { food = { x: Math.floor(Math.random() * tileCount), y: Math.floor(Math.random() * tileCount) }; if (snake.some(p => p.x === food.x && p.y === food.y)) placeFood(); }
         
+        function pushToQueue(cmd) {
+            let lastCmd = null;
+            if (inputQueue.length > 0) {
+                lastCmd = inputQueue[inputQueue.length - 1];
+            } else {
+                if (nextDx === 1) lastCmd = "RIGHT";
+                else if (nextDx === -1) lastCmd = "LEFT";
+                else if (nextDy === 1) lastCmd = "DOWN";
+                else if (nextDy === -1) lastCmd = "UP";
+            }
+            // Ignora spam da mesma tecla ou arrasto contínuo para manter a fila limpa! (Max 3 ações)
+            if (cmd !== lastCmd && inputQueue.length < 3) {
+                inputQueue.push(cmd);
+            }
+        }
+
         window.onkeydown = (e) => {
-            const keys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "s", "a", "d"];
-            if (keys.includes(e.key) && overlay.style.display === "none") {
+            const key = e.key.toLowerCase();
+            const keys = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "s", "a", "d"];
+            if (keys.includes(key) && overlay.style.display === "none") {
                 e.preventDefault(); // Inibe rolagem da janela enquanto joga
-                if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") inputQueue.push("UP");
-                if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") inputQueue.push("DOWN");
-                if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") inputQueue.push("LEFT");
-                if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") inputQueue.push("RIGHT");
+                if (key === "arrowup" || key === "w") pushToQueue("UP");
+                if (key === "arrowdown" || key === "s") pushToQueue("DOWN");
+                if (key === "arrowleft" || key === "a") pushToQueue("LEFT");
+                if (key === "arrowright" || key === "d") pushToQueue("RIGHT");
             }
         };
 
@@ -648,11 +665,11 @@ document.addEventListener("DOMContentLoaded", () => {
             // Sensibilidade do Swipe (30px)
             if (Math.abs(dxSwipe) > 30 || Math.abs(dySwipe) > 30) {
                 if (Math.abs(dxSwipe) > Math.abs(dySwipe)) {
-                    if (dxSwipe > 0) inputQueue.push("RIGHT");
-                    else if (dxSwipe < 0) inputQueue.push("LEFT");
+                    if (dxSwipe > 0) pushToQueue("RIGHT");
+                    else if (dxSwipe < 0) pushToQueue("LEFT");
                 } else {
-                    if (dySwipe > 0) inputQueue.push("DOWN");
-                    else if (dySwipe < 0) inputQueue.push("UP");
+                    if (dySwipe > 0) pushToQueue("DOWN");
+                    else if (dySwipe < 0) pushToQueue("UP");
                 }
                 // Reseta a âncora para permitir curvas sequenciais s/ tirar o dedo!
                 touchStartX = touchEndX;
