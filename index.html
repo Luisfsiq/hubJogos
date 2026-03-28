@@ -47,6 +47,9 @@
             <li class="active" data-view="home">
                 <span class="icon">🏠</span> <span>Início</span>
             </li>
+            <li data-view="stats">
+                <span class="icon">📊</span> <span>Estatísticas</span>
+            </li>
             <li data-view="profile">
                 <span class="icon">👤</span> <span>Perfil</span>
             </li>
@@ -132,28 +135,37 @@
                         <img id="profile-avatar-img" class="avatar-large hidden" src="" alt="Avatar">
                         <div id="profile-avatar-emoji" class="avatar-large">👤</div>
                         <label for="profile-pic-upload" class="upload-btn" title="Alterar foto">📷</label>
-                        <input type="file" id="profile-pic-upload" accept="image/*" class="hidden">
+                        <input type="file" id="profile-pic-upload" accept="image/*" class="file-upload-invisible">
                     </div>
                     <div class="user-info">
                         <h2 id="profile-username">Visitante</h2>
                         <p id="profile-email">Crie uma conta para salvar progresso</p>
                     </div>
                 </div>
-                <div class="profile-stats">
-                    <div class="game-stat">
-                        <h4>Jogo da Velha</h4>
-                        <p>Vitórias: <span id="stat-tictactoe">0</span></p>
-                    </div>
-                    <div class="game-stat">
-                        <h4>Snake</h4>
-                        <p>Recorde: <span id="stat-snake">0</span></p>
-                    </div>
-                    <div class="game-stat">
-                        <h4>Memória</h4>
-                        <p>Melhor Tempo: <span id="stat-memory">--:--</span></p>
-                    </div>
+                <button id="logout-btn" class="secondary-btn logout-btn hidden" style="margin-top: 2rem;">Encerrar Sessão</button>
+            </div>
+        </section>
+
+        <!-- View: Stats -->
+        <section id="view-stats" class="content-view hidden">
+            <div class="hub-header">
+                <h2>Suas Estatísticas</h2>
+                <p>Acompanhe seu desempenho em tempo real e atinja seus melhores resultados.</p>
+            </div>
+            
+            <div class="profile-stats">
+                <div class="stat-box">
+                    <span class="stat-label">Vitórias na Velha</span>
+                    <h3 class="stat-value" id="stat-tictactoe">0</h3>
                 </div>
-                <button id="logout-btn" class="logout-btn hidden">Sair da Conta</button>
+                <div class="stat-box">
+                    <span class="stat-label">Recorde do Snake</span>
+                    <h3 class="stat-value" id="stat-snake">0</h3>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Melhor Tempo da Memória</span>
+                    <h3 class="stat-value" id="stat-memory">--:--</h3>
+                </div>
             </div>
         </section>
     </main>

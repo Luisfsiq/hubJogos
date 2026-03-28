@@ -369,29 +369,73 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Game Logic ---
     function initTicTacToe() {
-        gameArea.innerHTML = `<div class="tictactoe-wrapper"><div class="game-status" id="tt-status">Vez do X</div><div class="tictactoe-board" id="tt-board">${Array(9).fill().map((_, i) => `<div class="tt-cell" data-i="${i}"></div>`).join('')}</div><button class="primary-btn mt-2" id="tt-reset">Reiniciar</button></div>`;
+        gameArea.innerHTML = `<div class="tictactoe-wrapper">
+            <div id="tt-overlay" class="game-overlay">
+                <h2>Modo de Jogo</h2>
+                <div class="snake-settings" style="margin-bottom:20px;">
+                    <select id="tt-mode-select">
+                        <option value="pvp" selected>Jogador vs Jogador (Local)</option>
+                        <option value="bot">Jogador vs Máquina (Bot)</option>
+                    </select>
+                </div>
+                <button id="start-tt-btn" class="primary-btn">Iniciar Jogo</button>
+            </div>
+            <div class="game-status" id="tt-status">Vez do X</div>
+            <div class="tictactoe-board" id="tt-board">${Array(9).fill().map((_, i) => `<div class="tt-cell" data-i="${i}"></div>`).join('')}</div>
+            <button class="primary-btn mt-2" id="tt-reset">Reiniciar</button>
+        </div>`;
         let board = ["", "", "", "", "", "", "", "", ""];
         let turn = "X";
-        let running = true;
+        let running = false;
+        let isBotMode = false;
+        
+        document.getElementById("start-tt-btn").addEventListener("click", () => {
+            isBotMode = document.getElementById("tt-mode-select").value === "bot";
+            document.getElementById("tt-overlay").style.display = "none";
+            running = true;
+        });
+
         const cells = document.querySelectorAll(".tt-cell");
         const status = document.getElementById("tt-status");
-        cells.forEach(c => c.addEventListener("click", () => {
-            const idx = c.dataset.i;
-            if (board[idx] || !running) return;
+        
+        function handlePlay(idx, c) {
             board[idx] = turn;
             c.textContent = turn;
             c.classList.add(turn.toLowerCase());
+            
             if (checkTTWin()) {
                 status.textContent = `${turn} Ganhou!`; running = false;
-                if (turn === 'X') saveStat('tictactoe', 1);
-                showGameOverlay("Fim de Jogo", `Jogador ${turn} Venceu!`, initTicTacToe);
+                if (turn === 'X' || (turn === 'O' && !isBotMode)) saveStat('tictactoe', 1);
+                showGameOverlay("Fim de Jogo", isBotMode && turn === 'O' ? "O Bot Venceu" : `Jogador ${turn} Venceu!`, initTicTacToe);
             } else if (!board.includes("")) {
                 status.textContent = "Empate!"; running = false;
                 showGameOverlay("Deu Velha!", "O jogo terminou em empate.", initTicTacToe);
             } else {
                 turn = turn === "X" ? "O" : "X"; status.textContent = `Vez do ${turn}`;
+                if (running && isBotMode && turn === 'O') {
+                    setTimeout(botPlay, 500);
+                }
             }
+        }
+
+        function botPlay() {
+            if (!running) return;
+            let emptyIndices = [];
+            board.forEach((val, i) => { if (!val) emptyIndices.push(i); });
+            if (emptyIndices.length > 0) {
+                const randomIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
+                const cell = document.querySelector(`.tt-cell[data-i='${randomIdx}']`);
+                handlePlay(randomIdx, cell);
+            }
+        }
+
+        cells.forEach(c => c.addEventListener("click", () => {
+            const idx = c.dataset.i;
+            if (board[idx] || !running) return;
+            if (isBotMode && turn === 'O') return; // Prevent clicking during bot turn
+            handlePlay(idx, c);
         }));
+        
         document.getElementById("tt-reset").addEventListener("click", initTicTacToe);
         function checkTTWin() { const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return wins.some(p => board[p[0]] && board[p[0]] === board[p[1]] && board[p[0]] === board[p[2]]); }
     }
@@ -403,9 +447,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 <label>Formato do Mapa</label><br>
                 <select id="snake-grid-select">
                     <option value="20" selected>Clássico (20x20)</option>
-                    <option value="6">Pequeno (6x6)</option>
-                    <option value="5">Micro (5x5)</option>
-                    <option value="4">Hardcore (4x4)</option>
+                    <option value="30">Grande (30x30)</option>
+                    <option value="40">Gigante (40x40)</option>
                 </select>
             </div>
         <button id="start-snake-btn" class="primary-btn">Iniciar Jogo</button></div><canvas id="snake-canvas" width="400" height="400" class="game-canvas"></canvas><div class="game-info"><div>Score: <span id="snake-score">0</span></div><div>Recorde: <span>${currentUser ? currentUser.stats.snake : 0}</span></div></div></div>`;
@@ -452,28 +495,180 @@ document.addEventListener("DOMContentLoaded", () => {
             if (e.key === "ArrowLeft" && dx === 0) { nextDx = -1; nextDy = 0; }
             if (e.key === "ArrowRight" && dx === 0) { nextDx = 1; nextDy = 0; }
         };
+
+        // --- Touch Control For Mobile Swipes ---
+        let touchStartX = 0;
+        let touchStartY = 0;
+        
+        canvas.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+        }, {passive: false});
+
+        canvas.addEventListener('touchmove', function(e) {
+            e.preventDefault(); // Evita scroll do site e refreshes indesejados no mobile
+        }, {passive: false});
+
+        canvas.addEventListener('touchend', function(e) {
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+            
+            let dxSwipe = touchEndX - touchStartX;
+            let dySwipe = touchEndY - touchStartY;
+            
+            // Registra movimento apenas se o arraste for maior que 20px
+            if (Math.abs(dxSwipe) > 20 || Math.abs(dySwipe) > 20) {
+                if (Math.abs(dxSwipe) > Math.abs(dySwipe)) {
+                    // Clicou e Arrastou para os Lados
+                    if (dxSwipe > 0 && dx === 0) { nextDx = 1; nextDy = 0; }
+                    else if (dxSwipe < 0 && dx === 0) { nextDx = -1; nextDy = 0; }
+                } else {
+                    // Clicou e Arrastou para Cima/Baixo
+                    if (dySwipe > 0 && dy === 0) { nextDx = 0; nextDy = 1; }
+                    else if (dySwipe < 0 && dy === 0) { nextDx = 0; nextDy = -1; }
+                }
+            }
+        });
+
         draw();
     }
 
     function initMemory() {
-        const icons = ['🍎', '🍌', '🍒', '🥑', '🍉', '🍇', '🍓', '🥝'];
-        let cards = [...icons, ...icons].sort(() => Math.random() - 0.5);
-        gameArea.innerHTML = `<div class="memory-grid">${cards.map((icon, i) => `<div class="memory-card" data-icon="${icon}">?</div>`).join('')}</div>`;
-        let flipped = [], matches = 0, startTime = Date.now();
-        document.querySelectorAll(".memory-card").forEach(c => c.addEventListener("click", () => {
-            if (flipped.length < 2 && !c.classList.contains("flipped")) {
-                c.classList.add("flipped"); c.textContent = c.dataset.icon; flipped.push(c);
-                if (flipped.length === 2) {
-                    if (flipped[0].dataset.icon === flipped[1].dataset.icon) {
-                        matches++; flipped = [];
-                        if (matches === icons.length) {
-                            const time = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
-                            saveStat('memory', time);
-                            showGameOverlay("Você Venceu!", `Tempo: ${time}`, initMemory);
-                        }
-                    } else setTimeout(() => { flipped.forEach(f => { f.classList.remove("flipped"); f.textContent = "?"; }); flipped = []; }, 800);
+        const allIcons = ['🍎','🍌','🍒','🥑','🍉','🍇','🍓','🥝','🍍','🥭','🥥','🍅','🍔','🍟','🍕','🌭','🍿','🥞'];
+        
+        gameArea.innerHTML = `<div class="memory-wrapper">
+            <div id="memory-overlay" class="game-overlay" style="z-index: 50;">
+                <h2>Memória Master</h2>
+                <div class="snake-settings">
+                    <label>Formato do Grade</label><br>
+                    <select id="memory-grid-select">
+                        <option value="16" selected>Pequeno 4x4 (8 Pares)</option>
+                        <option value="20">Médio 4x5 (10 Pares)</option>
+                        <option value="36">Desafio 6x6 (18 Pares)</option>
+                    </select>
+                </div>
+                <div class="snake-settings" style="margin-top:10px;">
+                    <label>Modo de Jogo</label><br>
+                    <select id="memory-mode-select">
+                        <option value="solo" selected>Treino Solo (Por Tempo)</option>
+                        <option value="bot">Contra a Máquina (Por Pontos)</option>
+                    </select>
+                </div>
+                <button id="start-memory-btn" class="primary-btn mt-2">Iniciar Jogo</button>
+            </div>
+            
+            <div class="game-info" id="memory-score-panel" style="display:none; justify-content:center; gap:20px; font-size:1.5rem; margin-bottom: 20px;">
+                <div id="mem-p1" style="color:var(--primary-color)">Você: 0</div>
+                <div id="mem-bot" style="color:var(--secondary-color)">Bot: 0</div>
+            </div>
+            <div id="memory-grid-container" class="memory-grid"></div>
+        </div>`;
+
+        document.getElementById("start-memory-btn").addEventListener("click", () => {
+            const numCards = parseInt(document.getElementById("memory-grid-select").value);
+            const isBotMode = document.getElementById("memory-mode-select").value === "bot";
+            document.getElementById("memory-overlay").style.display = "none";
+            startGame(numCards, isBotMode);
+        });
+
+        function startGame(numCards, isBotMode) {
+            const pairsCount = numCards / 2;
+            const selectedIcons = allIcons.slice(0, pairsCount);
+            let cards = [...selectedIcons, ...selectedIcons].sort(() => Math.random() - 0.5);
+            
+            const gridContainer = document.getElementById("memory-grid-container");
+            const cols = numCards === 16 ? 4 : (numCards === 20 ? 5 : 6);
+            gridContainer.style.gridTemplateColumns = `repeat(${cols}, min(13vw, 80px))`;
+            
+            gridContainer.innerHTML = cards.map((icon, i) => `<div class="memory-card" data-icon="${icon}" data-idx="${i}">?</div>`).join('');
+            
+            if (isBotMode) {
+                document.getElementById("memory-score-panel").style.display = "flex";
+            }
+            
+            let flipped = [], matches = 0, startTime = Date.now();
+            let p1Score = 0, botScore = 0;
+            let playerTurn = true;
+            let gameLock = false;
+
+            function updateScore() {
+                document.getElementById("mem-p1").textContent = `Você: ${p1Score}`;
+                document.getElementById("mem-bot").textContent = `Bot: ${botScore}`;
+            }
+
+            function botPlay() {
+                if(matches === pairsCount) return;
+                gameLock = true;
+                setTimeout(() => {
+                    const unflipped = Array.from(document.querySelectorAll(".memory-card:not(.flipped)"));
+                    if(unflipped.length === 0) return;
+                    
+                    let pick1 = unflipped[Math.floor(Math.random() * unflipped.length)];
+                    pick1.classList.add("flipped"); pick1.textContent = pick1.dataset.icon;
+                    
+                    setTimeout(() => {
+                        const remaining = unflipped.filter(c => c !== pick1 && !c.classList.contains("flipped"));
+                        if(remaining.length === 0) return;
+                        let pick2 = remaining[Math.floor(Math.random() * remaining.length)];
+                        pick2.classList.add("flipped"); pick2.textContent = pick2.dataset.icon;
+                        
+                        setTimeout(() => {
+                            if (pick1.dataset.icon === pick2.dataset.icon) {
+                                matches++; botScore++; updateScore();
+                                pick1.classList.add("matched"); pick2.classList.add("matched");
+                                if (matches === pairsCount) endGame();
+                                else botPlay(); // Bot goes again!
+                            } else {
+                                pick1.classList.remove("flipped"); pick1.textContent = "?";
+                                pick2.classList.remove("flipped"); pick2.textContent = "?";
+                                playerTurn = true;
+                                gameLock = false; // Give turn back to player
+                            }
+                        }, 1000);
+                    }, 500);
+                }, 500);
+            }
+
+            function endGame() {
+                if (isBotMode) {
+                    const result = p1Score > botScore ? "Você Venceu o Bot!" : (botScore > p1Score ? "O Bot Venceu" : "Empate!");
+                    if(p1Score > botScore) saveStat('memory', 'Win');
+                    showGameOverlay("Fim de Jogo", `${result} (Placar: ${p1Score}x${botScore})`, initMemory);
+                } else {
+                    const time = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
+                    saveStat('memory', time);
+                    showGameOverlay("Você Venceu!", `Tempo: ${time}`, initMemory);
                 }
             }
-        }));
+
+            document.querySelectorAll(".memory-card").forEach(c => c.addEventListener("click", () => {
+                if (gameLock || (!playerTurn && isBotMode)) return;
+                if (flipped.length < 2 && !c.classList.contains("flipped")) {
+                    c.classList.add("flipped"); c.textContent = c.dataset.icon; flipped.push(c);
+                    if (flipped.length === 2) {
+                        gameLock = true;
+                        if (flipped[0].dataset.icon === flipped[1].dataset.icon) {
+                            matches++;
+                            if (isBotMode) { p1Score++; updateScore(); }
+                            flipped[0].classList.add("matched"); flipped[1].classList.add("matched");
+                            flipped = [];
+                            gameLock = false;
+                            if (matches === pairsCount) endGame();
+                        } else {
+                            setTimeout(() => {
+                                flipped.forEach(f => { f.classList.remove("flipped"); f.textContent = "?"; });
+                                flipped = [];
+                                if (isBotMode) {
+                                    playerTurn = false;
+                                    botPlay();
+                                } else {
+                                    gameLock = false;
+                                }
+                            }, 800);
+                        }
+                    }
+                }
+            }));
+        }
     }
 });
