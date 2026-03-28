@@ -1,7 +1,5 @@
 "use strict";
-
-document.addEventListener("DOMContentLoaded", () => {
-    // --- Configuration ---
+// --- Configuration ---
     const API_URL = window.location.origin.includes('file://') ? 'http://localhost:3000/api' : '/api';
     
     // --- State Management ---
@@ -498,5 +496,3 @@ document.addEventListener("DOMContentLoaded", () => {
             <div style="text-align:right;">${card.v}</div>
         </div>`;
     }
-
-});
