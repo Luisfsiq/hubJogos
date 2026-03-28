@@ -190,8 +190,14 @@ document.addEventListener("DOMContentLoaded", () => {
             currentUser.stats.tictactoe += 1;
             changed = true;
         } else if (game === 'memory') {
-            currentUser.stats.memory = value;
-            changed = true;
+            const isNoRecord = currentUser.stats.memory === "--:--" || currentUser.stats.memory === "Win" || !currentUser.stats.memory;
+            const currentRecord = isNoRecord ? Infinity : parseFloat(currentUser.stats.memory);
+            const newValue = parseFloat(value);
+            
+            if (isNoRecord || (!isNaN(newValue) && newValue < currentRecord)) {
+                currentUser.stats.memory = value;
+                changed = true;
+            }
         } else if (game === 'blackjack') {
             currentUser.stats.blackjack_wins += value; // 1 win
             changed = true;
@@ -288,14 +294,21 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderStats() {
-        const stats = currentUser ? currentUser.stats : { tictactoe: 0, snake: 0, memory: "--:--", blackjack_wins: 0 };
+        const stats = currentUser ? currentUser.stats : { tictactoe: 0, snake: 0, memory: "--:--", blackjack_wins: 0, balance: 1000 };
         globalWinsDisp.textContent = (stats.tictactoe || 0) + (stats.blackjack_wins || 0);
         statTicTacToe.textContent = stats.tictactoe || 0;
         statSnake.textContent = stats.snake || 0;
         statMemory.textContent = stats.memory || '--:--';
         
         const bjwEl = document.getElementById("stat-blackjack");
-        if(bjwEl) bjwEl.textContent = `$${(stats.blackjack_wins || 0) * 10}`;
+        if(bjwEl) {
+            const currentBalance = stats.balance !== undefined ? stats.balance : 1000;
+            const profit = currentBalance - 1000;
+            bjwEl.textContent = `${profit > 0 ? '+' : ''}${profit} SQC`;
+            bjwEl.style.color = profit > 0 ? '#10b981' : (profit < 0 ? '#ef4444' : '#f59e0b');
+            document.getElementById("stat-blackjack").parentElement.style.borderColor = profit > 0 ? '#10b981' : (profit < 0 ? '#ef4444' : '#f59e0b');
+            document.getElementById("stat-blackjack").previousElementSibling.style.color = profit > 0 ? '#10b981' : (profit < 0 ? '#ef4444' : '#f59e0b');
+        }
     }
 
     function showToast(msg, type = "info") {
@@ -832,14 +845,14 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             function endGame() {
+                const timeStr = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
                 if (isBotMode) {
                     const result = p1Score > botScore ? "Você Venceu o Bot!" : (botScore > p1Score ? "O Bot Venceu" : "Empate!");
-                    if(p1Score > botScore) saveStat('memory', 'Win');
-                    showGameOverlay("Fim de Jogo", `${result} (Placar: ${p1Score}x${botScore})`, initMemory);
+                    if(p1Score > botScore) saveStat('memory', timeStr);
+                    showGameOverlay("Fim de Jogo", `${result} (Placar: ${p1Score}x${botScore}) - Tempo: ${timeStr}`, initMemory);
                 } else {
-                    const time = ((Date.now() - startTime) / 1000).toFixed(1) + "s";
-                    saveStat('memory', time);
-                    showGameOverlay("Você Venceu!", `Tempo: ${time}`, initMemory);
+                    saveStat('memory', timeStr);
+                    showGameOverlay("Você Venceu!", `Tempo: ${timeStr}`, initMemory);
                 }
             }
 
