@@ -378,19 +378,34 @@ document.addEventListener("DOMContentLoaded", () => {
                         <option value="bot">Jogador vs Máquina (Bot)</option>
                     </select>
                 </div>
+                <div class="snake-settings" style="margin-bottom:20px; display:none;" id="tt-diff-container">
+                    <label>Perícia da Inteligência</label><br>
+                    <select id="tt-difficulty">
+                        <option value="easy">Fácil (Aleatório)</option>
+                        <option value="medium" selected>Médio (Defensivo)</option>
+                        <option value="hard">Impossível (Minimax)</option>
+                    </select>
+                </div>
                 <button id="start-tt-btn" class="primary-btn">Iniciar Jogo</button>
             </div>
             <div class="game-status" id="tt-status">Vez do X</div>
             <div class="tictactoe-board" id="tt-board">${Array(9).fill().map((_, i) => `<div class="tt-cell" data-i="${i}"></div>`).join('')}</div>
             <button class="primary-btn mt-2" id="tt-reset">Reiniciar</button>
         </div>`;
+        
+        document.getElementById("tt-mode-select").addEventListener("change", (e) => {
+            document.getElementById("tt-diff-container").style.display = e.target.value === "bot" ? "block" : "none";
+        });
+
         let board = ["", "", "", "", "", "", "", "", ""];
         let turn = "X";
         let running = false;
         let isBotMode = false;
+        let botDifficulty = "medium";
         
         document.getElementById("start-tt-btn").addEventListener("click", () => {
             isBotMode = document.getElementById("tt-mode-select").value === "bot";
+            botDifficulty = document.getElementById("tt-difficulty").value;
             document.getElementById("tt-overlay").style.display = "none";
             running = true;
         });
@@ -398,6 +413,10 @@ document.addEventListener("DOMContentLoaded", () => {
         const cells = document.querySelectorAll(".tt-cell");
         const status = document.getElementById("tt-status");
         
+        const winPatterns = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+        function checkWinLogic(b, player) { return winPatterns.some(p => b[p[0]] === player && b[p[1]] === player && b[p[2]] === player); }
+        function checkTTWin() { return checkWinLogic(board, turn); }
+
         function handlePlay(idx, c) {
             board[idx] = turn;
             c.textContent = turn;
@@ -413,31 +432,90 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 turn = turn === "X" ? "O" : "X"; status.textContent = `Vez do ${turn}`;
                 if (running && isBotMode && turn === 'O') {
-                    setTimeout(botPlay, 500);
+                    setTimeout(botPlay, 400);
                 }
             }
         }
 
+        function getEmptyIndices(b) {
+            let empty = [];
+            b.forEach((v, i) => { if (v === "") empty.push(i); });
+            return empty;
+        }
+
+        function minimax(newBoard, player) {
+            let availSpots = getEmptyIndices(newBoard);
+            if (checkWinLogic(newBoard, 'X')) return { score: -10 };
+            else if (checkWinLogic(newBoard, 'O')) return { score: 10 };
+            else if (availSpots.length === 0) return { score: 0 };
+            
+            let moves = [];
+            for (let i = 0; i < availSpots.length; i++) {
+                let move = {};
+                move.index = availSpots[i];
+                newBoard[availSpots[i]] = player;
+
+                if (player === 'O') move.score = minimax(newBoard, 'X').score;
+                else move.score = minimax(newBoard, 'O').score;
+
+                newBoard[availSpots[i]] = "";
+                moves.push(move);
+            }
+
+            let bestMove;
+            if (player === 'O') {
+                let bestScore = -10000;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score > bestScore) { bestScore = moves[i].score; bestMove = i; }
+                }
+            } else {
+                let bestScore = 10000;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score < bestScore) { bestScore = moves[i].score; bestMove = i; }
+                }
+            }
+            return moves[bestMove];
+        }
+
+        function getMediumMove() {
+            let empty = getEmptyIndices(board);
+            // Defesa 50% ou Ataque
+            for (let i = 0; i < empty.length; i++) {
+                board[empty[i]] = 'O'; // Teste Win
+                if (checkWinLogic(board, 'O')) { board[empty[i]] = ""; return empty[i]; }
+                board[empty[i]] = 'X'; // Teste Bloqueio
+                if (checkWinLogic(board, 'X') && Math.random() > 0.3) { board[empty[i]] = ""; return empty[i]; }
+                board[empty[i]] = ""; // Undo
+            }
+            return empty[Math.floor(Math.random() * empty.length)];
+        }
+
         function botPlay() {
             if (!running) return;
-            let emptyIndices = [];
-            board.forEach((val, i) => { if (!val) emptyIndices.push(i); });
-            if (emptyIndices.length > 0) {
-                const randomIdx = emptyIndices[Math.floor(Math.random() * emptyIndices.length)];
-                const cell = document.querySelector(`.tt-cell[data-i='${randomIdx}']`);
-                handlePlay(randomIdx, cell);
+            let emptyLines = getEmptyIndices(board);
+            if (emptyLines.length === 0) return;
+            
+            let targetIdx;
+            if (botDifficulty === "easy") {
+                targetIdx = emptyLines[Math.floor(Math.random() * emptyLines.length)];
+            } else if (botDifficulty === "medium") {
+                targetIdx = getMediumMove();
+            } else {
+                targetIdx = minimax(board, 'O').index;
             }
+            
+            const cell = document.querySelector(`.tt-cell[data-i='${targetIdx}']`);
+            if (cell) handlePlay(targetIdx, cell);
         }
 
         cells.forEach(c => c.addEventListener("click", () => {
             const idx = c.dataset.i;
             if (board[idx] || !running) return;
-            if (isBotMode && turn === 'O') return; // Prevent clicking during bot turn
+            if (isBotMode && turn === 'O') return; // Bloqueio
             handlePlay(idx, c);
         }));
         
         document.getElementById("tt-reset").addEventListener("click", initTicTacToe);
-        function checkTTWin() { const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]; return wins.some(p => board[p[0]] && board[p[0]] === board[p[1]] && board[p[0]] === board[p[2]]); }
     }
 
     function initSnake() {
@@ -554,6 +632,14 @@ document.addEventListener("DOMContentLoaded", () => {
                         <option value="bot">Contra a Máquina (Por Pontos)</option>
                     </select>
                 </div>
+                <div class="snake-settings" style="margin-top:10px; display:none;" id="mem-diff-container">
+                    <label>Cérebro Sintético</label><br>
+                    <select id="memory-difficulty">
+                        <option value="easy">Fácil (Chutes Aleatórios)</option>
+                        <option value="normal" selected>Normal (Memória Curta)</option>
+                        <option value="hard">Hacker (Visão Implacável)</option>
+                    </select>
+                </div>
                 <button id="start-memory-btn" class="primary-btn mt-2">Iniciar Jogo</button>
             </div>
             
@@ -564,14 +650,19 @@ document.addEventListener("DOMContentLoaded", () => {
             <div id="memory-grid-container" class="memory-grid"></div>
         </div>`;
 
+        document.getElementById("memory-mode-select").addEventListener("change", (e) => {
+            document.getElementById("mem-diff-container").style.display = e.target.value === "bot" ? "block" : "none";
+        });
+
         document.getElementById("start-memory-btn").addEventListener("click", () => {
             const numCards = parseInt(document.getElementById("memory-grid-select").value);
             const isBotMode = document.getElementById("memory-mode-select").value === "bot";
+            const botDiff = document.getElementById("memory-difficulty").value;
             document.getElementById("memory-overlay").style.display = "none";
-            startGame(numCards, isBotMode);
+            startGame(numCards, isBotMode, botDiff);
         });
 
-        function startGame(numCards, isBotMode) {
+        function startGame(numCards, isBotMode, botDiff) {
             const pairsCount = numCards / 2;
             const selectedIcons = allIcons.slice(0, pairsCount);
             let cards = [...selectedIcons, ...selectedIcons].sort(() => Math.random() - 0.5);
@@ -582,14 +673,34 @@ document.addEventListener("DOMContentLoaded", () => {
             
             gridContainer.innerHTML = cards.map((icon, i) => `<div class="memory-card" data-icon="${icon}" data-idx="${i}">?</div>`).join('');
             
-            if (isBotMode) {
-                document.getElementById("memory-score-panel").style.display = "flex";
-            }
+            if (isBotMode) document.getElementById("memory-score-panel").style.display = "flex";
             
             let flipped = [], matches = 0, startTime = Date.now();
             let p1Score = 0, botScore = 0;
             let playerTurn = true;
             let gameLock = false;
+            let memoryDB = {}; // { icon: [idx1, idx2] }
+            let memoryHistoryQueue = []; // For easy/normal tracking limits
+
+            function memoryTrack(idx, icon) {
+                if (!memoryDB[icon]) memoryDB[icon] = [];
+                if (!memoryDB[icon].includes(idx)) {
+                    memoryDB[icon].push(idx);
+                    memoryHistoryQueue.push({icon, idx});
+                }
+                setTimeout(forgetProcess, 100);
+            }
+
+            function forgetProcess() {
+                if (botDiff === 'easy') { memoryDB = {}; memoryHistoryQueue = []; } // 100% amnesia
+                else if (botDiff === 'normal' && memoryHistoryQueue.length > 5) {
+                    // Esquece os mais velhos para simular perda de memoria (mantém ultimo 5)
+                    let amnesia = memoryHistoryQueue.shift();
+                    if(memoryDB[amnesia.icon]) {
+                        memoryDB[amnesia.icon] = memoryDB[amnesia.icon].filter(i => i !== amnesia.idx);
+                    }
+                }
+            }
 
             function updateScore() {
                 document.getElementById("mem-p1").textContent = `Você: ${p1Score}`;
@@ -600,33 +711,55 @@ document.addEventListener("DOMContentLoaded", () => {
                 if(matches === pairsCount) return;
                 gameLock = true;
                 setTimeout(() => {
-                    const unflipped = Array.from(document.querySelectorAll(".memory-card:not(.flipped)"));
+                    const docCards = Array.from(document.querySelectorAll(".memory-card"));
+                    const unflipped = docCards.filter(c => !c.classList.contains("flipped"));
                     if(unflipped.length === 0) return;
                     
-                    let pick1 = unflipped[Math.floor(Math.random() * unflipped.length)];
-                    pick1.classList.add("flipped"); pick1.textContent = pick1.dataset.icon;
+                    let target1 = null, target2 = null;
+
+                    // Hacker mode / Normal Memory Check
+                    if (botDiff !== 'easy') {
+                        // Varre a memoria pra ver se ja sabemos o local dos dois icones identicos
+                        for (const mk in memoryDB) {
+                            let indices = memoryDB[mk].filter(idx => !docCards[idx].classList.contains("matched"));
+                            if (indices.length === 2) {
+                                target1 = docCards[indices[0]]; target2 = docCards[indices[1]]; break;
+                            }
+                        }
+                    }
+
+                    if (!target1) target1 = unflipped[Math.floor(Math.random() * unflipped.length)];
+                    target1.classList.add("flipped"); target1.textContent = target1.dataset.icon;
+                    memoryTrack(parseInt(target1.dataset.idx), target1.dataset.icon);
                     
                     setTimeout(() => {
-                        const remaining = unflipped.filter(c => c !== pick1 && !c.classList.contains("flipped"));
-                        if(remaining.length === 0) return;
-                        let pick2 = remaining[Math.floor(Math.random() * remaining.length)];
-                        pick2.classList.add("flipped"); pick2.textContent = pick2.dataset.icon;
+                        if (!target2 && botDiff !== 'easy') {
+                            // Se tirou target1 aleatório, mas agora sabe q o outro já tá na memoria:
+                            let matchMemIndices = memoryDB[target1.dataset.icon].filter(idx => !docCards[idx].classList.contains("matched") && idx != parseInt(target1.dataset.idx));
+                            if (matchMemIndices.length > 0) target2 = docCards[matchMemIndices[0]];
+                        }
+                        
+                        const remaining = unflipped.filter(c => c !== target1 && !c.classList.contains("flipped"));
+                        if(!target2 && remaining.length > 0) target2 = remaining[Math.floor(Math.random() * remaining.length)];
+                        if(!target2) return;
+
+                        target2.classList.add("flipped"); target2.textContent = target2.dataset.icon;
+                        memoryTrack(parseInt(target2.dataset.idx), target2.dataset.icon);
                         
                         setTimeout(() => {
-                            if (pick1.dataset.icon === pick2.dataset.icon) {
+                            if (target1.dataset.icon === target2.dataset.icon) {
                                 matches++; botScore++; updateScore();
-                                pick1.classList.add("matched"); pick2.classList.add("matched");
+                                target1.classList.add("matched"); target2.classList.add("matched");
                                 if (matches === pairsCount) endGame();
                                 else botPlay(); // Bot goes again!
                             } else {
-                                pick1.classList.remove("flipped"); pick1.textContent = "?";
-                                pick2.classList.remove("flipped"); pick2.textContent = "?";
-                                playerTurn = true;
-                                gameLock = false; // Give turn back to player
+                                target1.classList.remove("flipped"); target1.textContent = "?";
+                                target2.classList.remove("flipped"); target2.textContent = "?";
+                                playerTurn = true; gameLock = false;
                             }
                         }, 1000);
-                    }, 500);
-                }, 500);
+                    }, 600);
+                }, 600);
             }
 
             function endGame() {
@@ -642,7 +775,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             document.querySelectorAll(".memory-card").forEach(c => c.addEventListener("click", () => {
+                let currentIdx = parseInt(c.dataset.idx);
+                memoryTrack(currentIdx, c.dataset.icon); // Trackei pro bot ver
                 if (gameLock || (!playerTurn && isBotMode)) return;
+                
                 if (flipped.length < 2 && !c.classList.contains("flipped")) {
                     c.classList.add("flipped"); c.textContent = c.dataset.icon; flipped.push(c);
                     if (flipped.length === 2) {
@@ -651,19 +787,14 @@ document.addEventListener("DOMContentLoaded", () => {
                             matches++;
                             if (isBotMode) { p1Score++; updateScore(); }
                             flipped[0].classList.add("matched"); flipped[1].classList.add("matched");
-                            flipped = [];
-                            gameLock = false;
+                            flipped = []; gameLock = false;
                             if (matches === pairsCount) endGame();
                         } else {
                             setTimeout(() => {
                                 flipped.forEach(f => { f.classList.remove("flipped"); f.textContent = "?"; });
                                 flipped = [];
-                                if (isBotMode) {
-                                    playerTurn = false;
-                                    botPlay();
-                                } else {
-                                    gameLock = false;
-                                }
+                                if (isBotMode) { playerTurn = false; botPlay(); } 
+                                else { gameLock = false; }
                             }, 800);
                         }
                     }
