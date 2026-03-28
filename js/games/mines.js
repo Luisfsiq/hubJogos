@@ -16,7 +16,7 @@
                  <button id="mines-bet-btn" class="primary-btn" style="width:210px; background:#10b981;">Apostar</button>
              </div>
              <!-- Play Panel (Hidden initially) -->
-             <div id="mines-play" class="hidden" style="display:none; flex-direction:column; justify-content:center; align-items:center; gap:10px; background:rgba(0,0,0,0.5); padding:15px; border-radius:15px; border:2px inset #475569; width:100%;">
+             <div id="mines-play" style="display:none; flex-direction:column; justify-content:center; align-items:center; gap:10px; background:rgba(0,0,0,0.5); padding:15px; border-radius:15px; border:2px inset #475569; width:100%;">
                  <div style="font-size:1.2rem; font-weight:bold; color:#10b981;">Multiplicador: <span id="mines-mult">1.00</span>x</div>
                  <button id="mines-cashout-btn" class="primary-btn pulse-glow" style="width:100%; max-width:300px; padding:15px; font-size:1.3rem; background:#10b981; color:white; font-weight:900; text-transform:uppercase; box-shadow:0 0 15px rgba(16,185,129,0.5); border:2px solid #34d399;">RETIRAR SQC <span id="mines-profit">0</span></button>
              </div>
