@@ -307,6 +307,10 @@ body {
 .tictactoe-bg { background: linear-gradient(135deg, #1e1b4b, #312e81); }
 .snake-bg { background: linear-gradient(135deg, #064e3b, #065f46); }
 .memory-bg { background: linear-gradient(135deg, #4c1d95, #5b21b6); }
+.minesweeper-bg { background: linear-gradient(135deg, #475569, #0f172a); }
+.flappy-bg { background: linear-gradient(135deg, #3b82f6, #60a5fa); }
+.slots-bg { background: linear-gradient(135deg, #8b5cf6, #5b21b6); }
+.crash-bg { background: linear-gradient(135deg, #f59e0b, #d97706); }
 
 .card-info {
     padding: 1.5rem;
@@ -781,6 +785,49 @@ body {
     border-color: var(--primary-hover);
     color: white;
     transform: rotateY(180deg);
+}
+
+/* Minesweeper Additions */
+.ms-grid {
+    display: grid;
+    gap: 2px;
+    background: var(--bg-dark);
+    padding: 4px;
+    border-radius: 8px;
+    border: 4px inset var(--border-color);
+    margin: 0 auto;
+}
+.ms-cell {
+    width: 30px;
+    height: 30px;
+    background: var(--glass-bg);
+    border: 2px outset rgba(255,255,255,0.2);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px;
+}
+.ms-cell:active:not(.revealed) {
+    border: 2px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.1);
+}
+.ms-cell.revealed {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.05);
+    cursor: default;
+}
+.ms-cell.revealed[style*="background: rgb(239"] {
+    background: #ef4444 !important;
+}
+
+/* Slots Additions */
+.slot-reel {
+    transition: transform 0.1s;
+    user-select: none;
 }
 
 /* Generic Custom DOM Alert Modal */

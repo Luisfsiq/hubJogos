@@ -37,7 +37,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const profileEmail = document.getElementById("profile-email");
     const statTicTacToe = document.getElementById("stat-tictactoe");
     const statSnake = document.getElementById("stat-snake");
+    const statFlappy = document.getElementById("stat-flappy");
     const statMemory = document.getElementById("stat-memory");
+    const statMinesweeper = document.getElementById("stat-minesweeper");
 
     // --- Initial App State ---
     checkSession();
@@ -102,7 +104,7 @@ document.addEventListener("DOMContentLoaded", () => {
         if (result) {
             currentUser = { ...result.user, token: result.token };
             if (!currentUser.stats) {
-                currentUser.stats = { tictactoe: 0, snake: 0, memory: "--:--", blackjack_wins: 0, balance: 1000 };
+                currentUser.stats = { tictactoe: 0, snake: 0, memory: "--:--", flappy: 0, minesweeper: "--:--", blackjack_wins: 0, balance: 1000 };
             }
             saveSession();
             loginSuccess();
@@ -131,6 +133,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 tictactoe: result.tictactoe_wins,
                 snake: result.snake_record,
                 memory: result.memory_best_time,
+                flappy: result.flappy_record || 0,
+                minesweeper: result.minesweeper_record || "--:--",
                 balance: result.balance !== undefined ? result.balance : 1000,
                 blackjack_wins: result.blackjack_wins || 0
             };
@@ -146,7 +150,9 @@ document.addEventListener("DOMContentLoaded", () => {
         await apiRequest("/stats/update", "POST", {
             tictactoe_wins: s.tictactoe,
             snake_record: s.snake,
-            memory_best_time: s.memory
+            memory_best_time: s.memory,
+            flappy_record: s.flappy,
+            minesweeper_record: s.minesweeper
         });
         await apiRequest("/stats/casino", "POST", {
             balance: s.balance,
@@ -156,7 +162,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // --- Local Logic ---
     function simulateAuth(user) {
-        currentUser = { username: user, email: `${user}@demo.com`, stats: { tictactoe: 0, snake: 0, memory: "--:--", balance: 1000, blackjack_wins: 0 } };
+        currentUser = { username: user, email: `${user}@demo.com`, stats: { tictactoe: 0, snake: 0, memory: "--:--", flappy: 0, minesweeper: "--:--", balance: 1000, blackjack_wins: 0 } };
         saveSession();
         loginSuccess();
     }
@@ -190,16 +196,21 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentUser.stats.snake = value;
                 changed = true;
             }
+        } else if (game === 'flappy') {
+            if (value > currentUser.stats.flappy) {
+                currentUser.stats.flappy = value;
+                changed = true;
+            }
         } else if (game === 'tictactoe') {
             currentUser.stats.tictactoe += 1;
             changed = true;
-        } else if (game === 'memory') {
-            const isNoRecord = currentUser.stats.memory === "--:--" || currentUser.stats.memory === "Win" || !currentUser.stats.memory;
-            const currentRecord = isNoRecord ? Infinity : parseFloat(currentUser.stats.memory);
+        } else if (game === 'memory' || game === 'minesweeper') {
+            const isNoRecord = currentUser.stats[game] === "--:--" || currentUser.stats[game] === "Win" || !currentUser.stats[game];
+            const currentRecord = isNoRecord ? Infinity : parseFloat(currentUser.stats[game]);
             const newValue = parseFloat(value);
             
             if (isNoRecord || (!isNaN(newValue) && newValue < currentRecord)) {
-                currentUser.stats.memory = value;
+                currentUser.stats[game] = value;
                 changed = true;
             }
         } else if (game === 'blackjack') {
@@ -213,12 +224,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentUser.stats.balance = 1000;
             }
             currentUser.stats.balance += v; 
-            
+            changed = true;
+        } else if (game === 'check_bankrupt') {
             if (currentUser.stats.balance <= 0) {
                 currentUser.stats.balance = 10000;
                 showToast("Banca zerada! Bônus de resgate (+10.000 SQC) ativado!", "success");
+                changed = true;
             }
-            changed = true;
         }
 
         if (changed) {
@@ -252,8 +264,13 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateAuthUI() {
         const sidebarUserInfo = document.getElementById("sidebar-user-info");
         const sidebarUsername = document.getElementById("sidebar-username");
+        const isLoggedIn = currentUser && currentUser.token;
 
-        if (currentUser) {
+        const casinoSection = document.getElementById("casino-section");
+        const topCasinoBalance = document.getElementById("top-casino-balance");
+        const statCasino = document.getElementById("stat-box-casino-revenue");
+
+        if (isLoggedIn) {
             userDisplayName.textContent = currentUser.username;
             loginTrigger.classList.add("hidden");
             if(sidebarUserInfo) {
@@ -263,6 +280,11 @@ document.addEventListener("DOMContentLoaded", () => {
             logoutBtn.classList.remove("hidden");
             profileUsername.textContent = currentUser.username;
             profileEmail.textContent = currentUser.email;
+
+            // Show Casino
+            if(casinoSection) casinoSection.classList.remove("hidden");
+            if(topCasinoBalance) topCasinoBalance.classList.remove("hidden");
+            if(statCasino) statCasino.classList.remove("hidden");
         } else {
             userDisplayName.textContent = "Convidado";
             loginTrigger.classList.remove("hidden");
@@ -272,11 +294,23 @@ document.addEventListener("DOMContentLoaded", () => {
             logoutBtn.classList.add("hidden");
             profileUsername.textContent = "Visitante";
             profileEmail.textContent = "Modo Convidado ativo";
+
+            // Hide Casino specifics but keep section visible
+            if(casinoSection) casinoSection.classList.remove("hidden");
+            if(topCasinoBalance) topCasinoBalance.classList.add("hidden");
+            if(statCasino) statCasino.classList.add("hidden");
         }
 
         const profileAvatarImg = document.getElementById("profile-avatar-img");
         const profileAvatarEmoji = document.getElementById("profile-avatar-emoji");
         const sidebarAvatarSm = document.querySelector(".avatar-sm");
+        
+        // Hide upload label if not logged in
+        const uploadLabel = document.querySelector('label[for="profile-pic-upload"]');
+        if (uploadLabel) {
+            if (isLoggedIn) uploadLabel.classList.remove("hidden");
+            else uploadLabel.classList.add("hidden");
+        }
         
         let pic = currentUser ? currentUser.profile_pic : localStorage.getItem("temp_visitor_pic");
         if (pic) {
@@ -309,11 +343,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderStats() {
-        const stats = currentUser ? currentUser.stats : { tictactoe: 0, snake: 0, memory: "--:--", blackjack_wins: 0, balance: 1000 };
+        const stats = currentUser ? currentUser.stats : { tictactoe: 0, snake: 0, memory: "--:--", flappy: 0, minesweeper: "--:--", blackjack_wins: 0, balance: 1000 };
         globalWinsDisp.textContent = (stats.tictactoe || 0) + (stats.blackjack_wins || 0);
         statTicTacToe.textContent = stats.tictactoe || 0;
         statSnake.textContent = stats.snake || 0;
+        if(statFlappy) statFlappy.textContent = stats.flappy || 0;
         statMemory.textContent = stats.memory || '--:--';
+        if(statMinesweeper) statMinesweeper.textContent = stats.minesweeper || '--:--';
         
         const bjwEl = document.getElementById("stat-blackjack");
         if(bjwEl) {
@@ -393,13 +429,28 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function launchGame(id) {
+        const casinoGames = ['mines', 'crash', 'blackjack', 'double', 'slots'];
+        if (casinoGames.includes(id)) {
+            const isLoggedIn = currentUser && currentUser.token;
+            if (!isLoggedIn) {
+                showToast("Faça login para apostar no Cassino!", "error");
+                // Optional: shake animation or open auth modal
+                authModal.classList.add("show");
+                return;
+            }
+        }
+
         switchView("games");
         gameArea.innerHTML = "";
         if (id === 'tictactoe') { activeGameTitle.textContent = "Jogo da Velha"; initTicTacToe(); }
         else if (id === 'snake') { activeGameTitle.textContent = "Snake Retro"; initSnake(); }
         else if (id === 'memory') { activeGameTitle.textContent = "Memória Master"; initMemory(); }
+        else if (id === 'mines') { activeGameTitle.textContent = "Mines Cassino"; initMines(); }
+        else if (id === 'crash') { activeGameTitle.textContent = "Crash Turbo"; initCrash(); }
+        else if (id === 'flappy') { activeGameTitle.textContent = "Flappy Bird"; initFlappy(); }
         else if (id === 'blackjack') { activeGameTitle.textContent = "Blackjack 21"; initBlackjack(); }
         else if (id === 'double') { activeGameTitle.textContent = "Roleta Double"; initDouble(); }
+        else if (id === 'slots') { activeGameTitle.textContent = "Caça-Níqueis"; initSlots(); }
     }
 
     function showGameOverlay(title, subtitle, onRetry) {
@@ -899,6 +950,381 @@ document.addEventListener("DOMContentLoaded", () => {
             }));
         }
     }
+    function initFlappy() {
+        if (snakeInterval) clearInterval(snakeInterval); // just in case
+        gameArea.innerHTML = `<div class="flappy-wrapper" style="position:relative; width:400px; height:500px; background:#0ea5e9; overflow:hidden; margin:0 auto; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.5);">
+            <div id="flappy-overlay" class="game-overlay" style="z-index: 10;">
+                <h2 style="color:white; text-shadow:2px 2px 0 #000;">Flappy Bird</h2>
+                <p style="color:white; font-weight:bold;">Space ou Toque para Voar</p>
+                <button id="start-flappy-btn" class="primary-btn mt-2">Jogar</button>
+            </div>
+            <div id="flappy-score" style="position:absolute; top:20px; width:100%; text-align:center; font-size:3rem; font-weight:900; color:white; z-index:5; text-shadow:2px 2px 0 #000;">0</div>
+            <div id="flappy-bird" style="position:absolute; width:34px; height:24px; background:#f59e0b; border-radius:50%; top:200px; left:50px; z-index:2; transition:transform 0.1s;">
+               <div style="position:absolute; width:10px; height:10px; background:white; border-radius:50%; right:5px; top:4px;"><div style="width:4px; height:4px; background:black; border-radius:50%; margin-top:3px; margin-left:4px;"></div></div>
+               <div style="position:absolute; width:14px; height:8px; background:#ef4444; border-radius:4px; right:-6px; top:12px;"></div>
+            </div>
+        </div>`;
+        const wrapper = document.querySelector('.flappy-wrapper');
+        const bird = document.getElementById('flappy-bird');
+        const scoreEl = document.getElementById('flappy-score');
+        const overlay = document.getElementById('flappy-overlay');
+        const startBtn = document.getElementById('start-flappy-btn');
+
+        let birdY = 200, velocity = 0, gravity = 0.5, isPlaying = false;
+        let pipes = [], score = 0, gameTimer;
+
+        function jump() {
+            if(!isPlaying) return;
+            velocity = -7.5;
+        }
+
+        startBtn.addEventListener('click', () => {
+            overlay.style.display = 'none';
+            resetGame();
+            isPlaying = true;
+            gameTimer = setInterval(update, 20);
+        });
+
+        window.onkeydown = (e) => { if ((e.code === 'Space' || e.key === ' ') && overlay.style.display === "none") { e.preventDefault(); jump(); } };
+        wrapper.addEventListener('touchstart', (e) => { e.preventDefault(); jump(); }, {passive: false});
+        wrapper.addEventListener('mousedown', (e) => { e.preventDefault(); jump(); });
+
+        function resetGame() {
+            birdY = 200; velocity = 0; score = 0; pipes.forEach(p => p.top.remove() & p.bottom.remove()); pipes = [];
+            scoreEl.textContent = score; bird.style.top = birdY + 'px';
+        }
+
+        function createPipe() {
+            const gap = 130;
+            const pipeWidth = 60;
+            const topHeight = Math.floor(Math.random() * (500 - gap - 100)) + 50;
+            
+            const topPipe = document.createElement('div');
+            topPipe.style.position = 'absolute'; topPipe.style.top = '0'; topPipe.style.width = pipeWidth + 'px'; topPipe.style.height = topHeight + 'px'; topPipe.style.background = '#22c55e'; topPipe.style.border = '3px solid #14532d'; topPipe.style.left = '400px';
+            
+            const bottomPipe = document.createElement('div');
+            bottomPipe.style.position = 'absolute'; bottomPipe.style.bottom = '0'; bottomPipe.style.width = pipeWidth + 'px'; bottomPipe.style.height = (500 - topHeight - gap) + 'px'; bottomPipe.style.background = '#22c55e'; bottomPipe.style.border = '3px solid #14532d'; bottomPipe.style.left = '400px';
+            
+            wrapper.appendChild(topPipe); wrapper.appendChild(bottomPipe);
+            pipes.push({ x: 400, top: topPipe, bottom: bottomPipe, passed: false, width: pipeWidth });
+        }
+
+        let pipeFrames = 0;
+        function update() {
+            // physics
+            velocity += gravity; birdY += velocity;
+            bird.style.top = birdY + 'px';
+            bird.style.transform = `rotate(${Math.min(90, velocity * 4)}deg)`;
+            
+            if (birdY > 480 || birdY < -20) return gameOver();
+
+            if (pipeFrames % 90 === 0) createPipe();
+            pipeFrames++;
+
+            for (let i = 0; i < pipes.length; i++) {
+                let p = pipes[i];
+                p.x -= 3;
+                p.top.style.left = p.x + 'px';
+                p.bottom.style.left = p.x + 'px';
+                
+                // collision
+                if (p.x < 50 + 34 && p.x + p.width > 50) {
+                    let topLimit = parseInt(p.top.style.height);
+                    let bottomLimit = 500 - parseInt(p.bottom.style.height);
+                    if (birdY < topLimit || birdY + 24 > bottomLimit) return gameOver();
+                }
+
+                if (p.x + p.width < 50 && !p.passed) { p.passed = true; score++; scoreEl.textContent = score; }
+                
+                if (p.x < -60) { p.top.remove(); p.bottom.remove(); pipes.splice(i, 1); i--; }
+            }
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            clearInterval(gameTimer);
+            saveStat('flappy', score);
+            window.onkeydown = null;
+            showGameOverlay("Game Over", `Score: ${score}`, initFlappy);
+        }
+    }
+    
+    function initMines() {
+        gameArea.innerHTML = `<div class="minesweeper-wrapper" style="max-width:600px; margin:0 auto; display:flex; flex-direction:column; gap:20px;">
+             <!-- Setup Panel -->
+             <div id="mines-setup" class="game-info" style="justify-content:center; align-items:center; flex-direction:column; background:rgba(0,0,0,0.5); padding:20px; border-radius:15px; border:2px inset #475569;">
+                 <h2 style="color:#fcd34d; font-size:2rem; margin-bottom:10px;">MINES 💣</h2>
+                 <div style="display:flex; gap:10px; margin-bottom:15px;">
+                     <div>
+                         <label style="color:#cbd5e1; font-size:0.9rem;">Aposta (SQC)</label><br>
+                         <input type="number" id="mines-bet" value="10" min="1" style="width:100px; padding:10px; border-radius:5px; font-weight:bold; background:#1e293b; color:white; border:1px solid #475569;">
+                     </div>
+                     <div>
+                         <label style="color:#cbd5e1; font-size:0.9rem;">Bombas</label><br>
+                         <input type="number" id="mines-count-input" value="3" min="1" max="24" style="width:100px; padding:10px; border-radius:5px; font-weight:bold; background:#1e293b; color:white; border:1px solid #475569;">
+                     </div>
+                 </div>
+                 <button id="mines-bet-btn" class="primary-btn" style="width:210px; background:#10b981;">Apostar</button>
+             </div>
+             <!-- Play Panel (Hidden initially) -->
+             <div id="mines-play" class="hidden" style="display:none; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.5); padding:15px; border-radius:15px; border:2px inset #475569; width:100%;">
+                 <div style="font-size:1.2rem; font-weight:bold; color:#10b981;">Mult: <span id="mines-mult">1.00</span>x</div>
+                 <div style="font-size:1.2rem; font-weight:bold; color:#f59e0b;">Lucro: <span id="mines-profit">0</span></div>
+                 <button id="mines-cashout-btn" class="primary-btn" style="width:100px; padding:8px; background:#f59e0b; color:black;">Sacar</button>
+             </div>
+             
+             <div id="ms-grid" class="ms-grid" style="grid-template-columns: repeat(5, 60px); grid-template-rows: repeat(5, 60px); gap:5px; background:transparent; border:none;"></div>
+        </div>`;
+
+        let grid = [], bombsList = [];
+        let isPlaying = false, multiplier = 1.0, betAmount = 0, bombsCount = 3, tilesRevealed = 0;
+        
+        const gridEl = document.getElementById("ms-grid");
+        const betBtn = document.getElementById("mines-bet-btn");
+        const setupDiv = document.getElementById("mines-setup");
+        const playDiv = document.getElementById("mines-play");
+        const multEl = document.getElementById("mines-mult");
+        const profitEl = document.getElementById("mines-profit");
+        const cashoutBtn = document.getElementById("mines-cashout-btn");
+
+        function drawGrid(active) {
+            gridEl.innerHTML = '';
+            for(let i=0; i<25; i++) {
+                const cell = document.createElement("div");
+                cell.className = "ms-cell";
+                cell.style.width = "60px"; cell.style.height = "60px"; cell.style.fontSize = "2rem";
+                if(active) cell.addEventListener("click", () => revealCell(i, cell));
+                gridEl.appendChild(cell);
+            }
+        }
+        drawGrid(false);
+
+        betBtn.addEventListener("click", () => {
+            if (!currentUser || !currentUser.stats || typeof currentUser.stats.balance === 'undefined') {
+                showToast("Faça login para apostar.", "error"); return;
+            }
+            betAmount = parseInt(document.getElementById("mines-bet").value);
+            bombsCount = parseInt(document.getElementById("mines-count-input").value);
+            if(isNaN(betAmount) || betAmount <= 0 || betAmount > currentUser.stats.balance) {
+                showToast("Saldo insuficiente ou aposta inválida!", "error"); return;
+            }
+            if(isNaN(bombsCount) || bombsCount < 1 || bombsCount > 24) {
+                showToast("Bombas deve ser entre 1 e 24.", "warning"); return;
+            }
+
+            saveStat('balance', -betAmount); // deduct upfront
+            
+            // Generate bombs
+            let allInd = Array.from({length: 25}, (_, i) => i);
+            allInd.sort(() => Math.random() - 0.5);
+            bombsList = allInd.slice(0, bombsCount);
+            
+            isPlaying = true;
+            multiplier = 1.00;
+            tilesRevealed = 0;
+            
+            setupDiv.style.display = "none";
+            playDiv.style.display = "flex";
+            multEl.textContent = "1.00";
+            profitEl.textContent = (betAmount).toFixed(0);
+            
+            drawGrid(true);
+        });
+
+        function revealCell(idx, cellEl) {
+            if(!isPlaying || cellEl.classList.contains("revealed")) return;
+            cellEl.classList.add("revealed");
+            
+            if(bombsList.includes(idx)) {
+                // BOOM
+                cellEl.innerHTML = '💣';
+                cellEl.style.background = '#ef4444';
+                gameOverMines(false);
+            } else {
+                // DIAMOND
+                cellEl.innerHTML = '💎';
+                tilesRevealed++;
+                
+                // Calculate next payout
+                let remainingSpaces = 25 - (tilesRevealed - 1);
+                let remainingSafe = remainingSpaces - bombsCount;
+                multiplier = multiplier * (remainingSpaces / remainingSafe) * 0.98; // 2% house edge
+                
+                multEl.textContent = multiplier.toFixed(2);
+                profitEl.textContent = Math.floor(betAmount * multiplier);
+                
+                if (tilesRevealed === 25 - bombsCount) {
+                    gameOverMines(true); // Auto cashout on max win
+                }
+            }
+        }
+
+        cashoutBtn.addEventListener("click", () => {
+            if(!isPlaying || tilesRevealed === 0) return;
+            gameOverMines(true);
+        });
+
+        function gameOverMines(won) {
+            isPlaying = false;
+            
+            const cells = gridEl.children;
+            for(let i=0; i<25; i++) {
+                if(!cells[i].classList.contains("revealed")) {
+                    cells[i].classList.add("revealed");
+                    cells[i].style.opacity = "0.5";
+                    cells[i].innerHTML = bombsList.includes(i) ? '💣' : '💎';
+                }
+            }
+
+            setTimeout(() => {
+                if(won) {
+                    let winAmount = Math.floor(betAmount * multiplier);
+                    saveStat('balance', winAmount);
+                    showToast(`BINGO! Você retirou SQC ${winAmount}!`, "success");
+                } else {
+                    saveStat('check_bankrupt');
+                    showToast("CABUM! Você acertou uma bomba =(", "error");
+                }
+                setupDiv.style.display = "flex";
+                playDiv.style.display = "none";
+                drawGrid(false);
+            }, 1000);
+        }
+    }
+
+    function initCrash() {
+        gameArea.innerHTML = `<div class="crash-wrapper" style="width:100%; max-width:600px; margin:0 auto; background:#0f172a; border-radius:15px; border:2px solid #f59e0b; overflow:hidden; position:relative;">
+            <div id="crash-screen" style="height:350px; position:relative; display:flex; justify-content:center; align-items:center; overflow:hidden; border-bottom:1px solid #334155; box-shadow:inset 0 0 50px rgba(0,0,0,0.8);">
+                <div id="crash-pulse" style="position:absolute; bottom:0; left:0; width:100%; height:0%; background:linear-gradient(to top, rgba(16, 185, 129, 0.4), transparent); transition: height 0.1s;"></div>
+                <h1 id="crash-multiplier" style="font-size:5rem; font-weight:900; color:#10b981; z-index:5; text-shadow:0 0 20px #10b981;">1.00x</h1>
+                <div id="crash-rocket" style="position:absolute; bottom:10px; left:10px; font-size:3rem; transition:all 0.1s; transform:rotate(45deg); z-index:10; filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.8));">🚀</div>
+            </div>
+            <div style="padding:20px; background:rgba(0,0,0,0.5);">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px; gap:10px;">
+                     <div style="flex:1;">
+                         <label style="color:#cbd5e1; font-weight:bold;">Aposta (SQC)</label><br>
+                         <input type="number" id="crash-bet" value="50" min="1" style="width:100%; padding:10px; border-radius:5px; font-weight:bold; background:#1e293b; color:white; border:1px solid #475569;">
+                     </div>
+                     <div style="flex:1;">
+                         <label style="color:#cbd5e1; font-weight:bold;">Auto Retirar</label><br>
+                         <input type="number" id="crash-auto" value="2.00" step="0.1" min="1.1" style="width:100%; padding:10px; border-radius:5px; font-weight:bold; background:#1e293b; color:white; border:1px solid #475569;">
+                     </div>
+                </div>
+                <button id="crash-action-btn" class="primary-btn" style="width:100%; height:60px; font-size:1.5rem; background:#10b981; box-shadow:0 5px 0 #047857; text-transform:uppercase;">Iniciar Aposta</button>
+            </div>
+        </div>`;
+
+        let isPlaying = false, isCrashed = false, multiplier = 1.0, betAmount = 0, currentCrashPoint = 0, timerId, startTime;
+        const multEl = document.getElementById("crash-multiplier");
+        const actionBtn = document.getElementById("crash-action-btn");
+        const rocket = document.getElementById("crash-rocket");
+        const pulse = document.getElementById("crash-pulse");
+        const autoInput = document.getElementById("crash-auto");
+        const betInput = document.getElementById("crash-bet");
+
+        actionBtn.addEventListener("click", () => {
+            if(!isPlaying && !isCrashed) {
+                // START BET
+                if (!currentUser || !currentUser.stats || typeof currentUser.stats.balance === 'undefined') {
+                    showToast("Faça login para apostar.", "error"); return;
+                }
+                betAmount = parseInt(betInput.value);
+                if(isNaN(betAmount) || betAmount <= 0 || betAmount > currentUser.stats.balance) {
+                    showToast("Saldo insuficiente ou aposta inválida!", "error"); return;
+                }
+                saveStat('balance', -betAmount);
+                
+                // Calculate Crash Point (1% house edge => ~0.99 inverse exponential chance)
+                currentCrashPoint = Math.max(1.00, 0.99 / Math.random());
+                if(currentCrashPoint > 1000) currentCrashPoint = 1000;
+                
+                isPlaying = true;
+                multiplier = 1.0;
+                startTime = Date.now();
+                actionBtn.textContent = "RETIRAR SQC " + betAmount;
+                actionBtn.style.background = "#f59e0b";
+                actionBtn.style.boxShadow = "0 5px 0 #b45309";
+                
+                multEl.style.color = "#10b981";
+                multEl.style.textShadow = "0 0 20px #10b981";
+                pulse.style.height = "0%";
+                pulse.style.background = "linear-gradient(to top, rgba(16, 185, 129, 0.4), transparent)";
+                rocket.style.bottom = "10px"; rocket.style.left = "10px";
+                
+                timerId = requestAnimationFrame(tickCrash);
+            } else if (isPlaying && !isCrashed) {
+                // CASH OUT
+                cashOut();
+            } else if (isCrashed) {
+                // RESET
+                isCrashed = false;
+                multEl.textContent = "1.00x";
+                multEl.style.color = "#10b981";
+                multEl.style.textShadow = "0 0 20px #10b981";
+                actionBtn.textContent = "Iniciar Aposta";
+                actionBtn.style.background = "#10b981";
+                actionBtn.style.boxShadow = "0 5px 0 #047857";
+                rocket.style.bottom = "10px"; rocket.style.left = "10px";
+                pulse.style.height = "0%";
+            }
+        });
+
+        function cashOut() {
+            isPlaying = false;
+            let winAmount = Math.floor(betAmount * multiplier);
+            saveStat('balance', winAmount);
+            actionBtn.textContent = `Retirou SQC ${winAmount}! (Apostar Nova)`;
+            actionBtn.style.background = "#3b82f6";
+            actionBtn.style.boxShadow = "0 5px 0 #1d4ed8";
+            showToast(`Você pulou fora com ${multiplier.toFixed(2)}x! (+${winAmount} SQC)`, "success");
+        }
+
+        function tickCrash() {
+            if(!isPlaying) return; // cashed out early
+            
+            let elapsed = (Date.now() - startTime) / 1000;
+            multiplier = Math.pow(1.06, elapsed * 10);
+            
+            if (multiplier >= currentCrashPoint) {
+                multiplier = currentCrashPoint;
+                doCrash();
+                return;
+            }
+            
+            let autoLimit = parseFloat(autoInput.value) || Infinity;
+            if(multiplier >= autoLimit && autoLimit > 1.0) {
+                cashOut();
+            } else {
+                multEl.textContent = multiplier.toFixed(2) + "x";
+                actionBtn.textContent = `RETIRAR SQC ${Math.floor(betAmount * multiplier)}`;
+                
+                let pctX = Math.min(100, (multiplier / 5) * 100);
+                let pctY = Math.min(100, (multiplier / 3) * 100);
+                pulse.style.height = pctY + '%';
+                
+                // Animate rocket diagonally relative to container (350px height x 600px width approx)
+                rocket.style.bottom = (10 + pctY * 2.8) + "px";
+                rocket.style.left = (10 + pctX * 4.5) + "px";
+                
+                timerId = requestAnimationFrame(tickCrash);
+            }
+        }
+
+        function doCrash() {
+            isPlaying = false;
+            isCrashed = true;
+            multEl.textContent = multiplier.toFixed(2) + "x";
+            multEl.style.color = "#ef4444";
+            multEl.style.textShadow = "0 0 20px #ef4444";
+            
+            actionBtn.textContent = "CRASHED! (Apostar Novamente)";
+            actionBtn.style.background = "#ef4444";
+            actionBtn.style.boxShadow = "0 5px 0 #b91c1c";
+            
+            pulse.style.background = "linear-gradient(to top, rgba(239, 68, 68, 0.4), transparent)";
+            saveStat('check_bankrupt');
+        }
+    }
 // --- Casino Logic ---
     function generateDeck() {
         const suits = ['♠', '♥', '♦', '♣'];
@@ -1051,7 +1477,11 @@ document.addEventListener("DOMContentLoaded", () => {
             renderHands(false);
             
             setTimeout(() => {
-                if (mult > 0) saveStat('balance', Math.floor(bet * mult));
+                if (mult > 0) {
+                    saveStat('balance', Math.floor(bet * mult));
+                } else {
+                    saveStat('check_bankrupt');
+                }
                 if (res === 'win') saveStat('blackjack', 1);
                 
                 showGameOverlay(msg, res === 'win' || res === 'tie' ? `Retorno: SQC ${Math.floor(bet * mult)}` : `Você perdeu SQC ${bet}.`, initBlackjack);
@@ -1142,6 +1572,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         showToast(`Vitória Histórica! +${bet*mult} SQC`, "success");
                     } else {
                         resultMsg = `Você perdeu SQC ${bet}. Caiu no ${chosenTileColor.toUpperCase()}`;
+                        saveStat('check_bankrupt');
                     }
                     
                     const dov = document.getElementById("double-overlay");
@@ -1162,6 +1593,110 @@ document.addEventListener("DOMContentLoaded", () => {
             });
         });
 
+    }
+
+    function initSlots() {
+        gameArea.innerHTML = `<div class="casino-board" style="align-items:center; background: radial-gradient(circle at center, #4c1d95, #2e1065); width:100%; height:100%; display:flex; flex-direction:column; justify-content:center;">
+             <div style="width:100%; padding:20px; text-align:center; max-width:600px; margin:0 auto; background:rgba(0,0,0,0.5); border-radius:20px; border:2px solid #8b5cf6; box-shadow:0 0 30px rgba(139, 92, 246, 0.5);">
+                 <h2 style="color:#fcd34d; font-size:2.5rem; text-shadow:0 0 10px #fcd34d, 0 0 20px #b45309; margin-bottom:20px;">JACKPOT SLOTS 🎰</h2>
+                 
+                 <div style="display:flex; justify-content:center; gap:10px; margin-bottom:30px; background:#0f172a; padding:20px; border-radius:15px; border:inset 4px #cbd5e1;">
+                     <div class="slot-reel" id="reel-1" style="font-size:4rem; width:80px; height:100px; display:flex; justify-content:center; align-items:center; background:white; border-radius:8px; box-shadow:inset 0 10px 10px rgba(0,0,0,0.5);">🍒</div>
+                     <div class="slot-reel" id="reel-2" style="font-size:4rem; width:80px; height:100px; display:flex; justify-content:center; align-items:center; background:white; border-radius:8px; box-shadow:inset 0 10px 10px rgba(0,0,0,0.5);">🍋</div>
+                     <div class="slot-reel" id="reel-3" style="font-size:4rem; width:80px; height:100px; display:flex; justify-content:center; align-items:center; background:white; border-radius:8px; box-shadow:inset 0 10px 10px rgba(0,0,0,0.5);">🍇</div>
+                 </div>
+
+                 <div class="snake-settings" style="text-align:center;">
+                     <input type="number" id="slots-bet-input" value="20" min="10" max="500" style="padding:15px; font-size:1.5rem; width:150px; text-align:center; border-radius:8px; font-weight:bold; background:#fffbeb;">
+                     <button id="spin-slots-btn" style="padding:15px 40px; border-radius:10px; border:none; background:linear-gradient(to bottom, #ef4444, #991b1b); color:white; font-size:1.5rem; font-weight:bold; cursor:pointer; margin-left:15px; box-shadow:0 5px 0 #7f1d1d, 0 10px 20px rgba(0,0,0,0.5); position:relative; top:-2px;">GIRAR</button>
+                 </div>
+                 <div id="slots-msg" style="margin-top:20px; font-size:1.2rem; color:white; min-height:30px;">Prêmios: 3x💎=100x | 3x🔔=20x | 3x🍒=5x</div>
+             </div>
+        </div>`;
+
+        const symbols = ['🍒', '🍋', '🍇', '🍉', '🔔', '💎'];
+        const weights = [40, 30, 15, 10, 4, 1]; // sum = 100
+        
+        function getRandomSymbol() {
+            let r = Math.random() * 100;
+            let acc = 0;
+            for(let i=0; i<symbols.length; i++) {
+                acc += weights[i];
+                if(r < acc) return symbols[i];
+            }
+            return symbols[0];
+        }
+
+        const btn = document.getElementById("spin-slots-btn");
+        const msg = document.getElementById("slots-msg");
+        const reels = [document.getElementById("reel-1"), document.getElementById("reel-2"), document.getElementById("reel-3")];
+
+        btn.addEventListener("click", () => {
+            const bet = parseInt(document.getElementById("slots-bet-input").value);
+            if (!currentUser || !currentUser.stats || typeof currentUser.stats.balance === 'undefined') {
+                showToast("Faça login para apostar.", "error"); return;
+            }
+            if (isNaN(bet) || bet > currentUser.stats.balance || bet <= 0) {
+                showToast("Saldo Insuficiente ou Aposta Inválida!", "error"); return;
+            }
+
+            saveStat('balance', -bet);
+            btn.disabled = true;
+            btn.style.top = '3px';
+            btn.style.boxShadow = '0 0 0 #7f1d1d, 0 5px 10px rgba(0,0,0,0.5)';
+            msg.textContent = 'Girando...';
+            msg.style.color = 'white';
+            
+            let spins = [0,0,0];
+            let results = [];
+            let spinIntervals = [];
+
+            for(let i=0; i<3; i++) {
+                results[i] = getRandomSymbol();
+                spinIntervals[i] = setInterval(() => {
+                    reels[i].textContent = symbols[Math.floor(Math.random()*symbols.length)];
+                }, 50);
+
+                setTimeout(() => {
+                    clearInterval(spinIntervals[i]);
+                    reels[i].textContent = results[i];
+                    
+                    if(i === 2) { // Last reel
+                        btn.disabled = false;
+                        btn.style.top = '-2px';
+                        btn.style.boxShadow = '0 5px 0 #7f1d1d, 0 10px 20px rgba(0,0,0,0.5)';
+                        checkWin(results, bet);
+                    }
+                }, 1000 + i * 500);
+            }
+        });
+
+        function checkWin(res, bet) {
+            let mult = 0;
+            if (res[0] === res[1] && res[1] === res[2]) {
+                if(res[0] === '💎') mult = 100;
+                else if(res[0] === '🔔') mult = 20;
+                else if(res[0] === '🍉') mult = 10;
+                else if(res[0] === '🍇') mult = 7;
+                else if(res[0] === '🍋') mult = 6;
+                else if(res[0] === '🍒') mult = 5;
+            }
+            
+            if (mult > 0) {
+                msg.textContent = `JACKPOT! VOCÊ GANHOU ${bet * mult} SQC!`;
+                msg.style.color = '#10b981';
+                msg.style.fontWeight = 'bold';
+                msg.style.textShadow = '0 0 10px rgba(16, 185, 129, 0.8)';
+                saveStat('balance', bet * mult);
+                showToast(`Ganhos Multiplicados x${mult}!`, "success");
+            } else {
+                msg.textContent = `Você perdeu ${bet} SQC.`;
+                msg.style.color = '#ef4444';
+                msg.style.fontWeight = 'normal';
+                msg.style.textShadow = 'none';
+                saveStat('check_bankrupt');
+            }
+        }
     }
 
 });

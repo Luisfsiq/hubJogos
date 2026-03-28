@@ -33,12 +33,16 @@ const initDB = async () => {
                 snake_record INTEGER DEFAULT 0,
                 memory_best_time VARCHAR(10) DEFAULT '--:--',
                 balance INTEGER DEFAULT 1000,
-                blackjack_wins INTEGER DEFAULT 0
+                blackjack_wins INTEGER DEFAULT 0,
+                flappy_record INTEGER DEFAULT 0,
+                minesweeper_record VARCHAR(20) DEFAULT '--:--'
             );
         `);
         // Migrations on fly to guarantee new fields
         try { await pool.query(`ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 1000;`); } catch(e){}
         try { await pool.query(`ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS blackjack_wins INTEGER DEFAULT 0;`); } catch(e){}
+        try { await pool.query(`ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS flappy_record INTEGER DEFAULT 0;`); } catch(e){}
+        try { await pool.query(`ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS minesweeper_record VARCHAR(20) DEFAULT '--:--';`); } catch(e){}
         console.log("Database initialized successfully.");
     } catch (err) {
         console.error("Error initializing database:", err);
@@ -91,7 +95,7 @@ app.post('/api/login', async (req, res) => {
         
         // Fetch stats
         const statsResult = await pool.query('SELECT * FROM user_stats WHERE user_id = $1', [user.id]);
-        let stats = statsResult.rows[0] || { tictactoe_wins: 0, snake_record: 0, memory_best_time: '--:--' };
+        let stats = statsResult.rows[0] || { tictactoe_wins: 0, snake_record: 0, memory_best_time: '--:--', flappy_record: 0, minesweeper_record: '--:--' };
 
         const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '1h' });
         res.json({ token, user: { id: user.id, username: user.username, email: user.email, profile_pic: user.profile_pic, stats } });
@@ -126,7 +130,7 @@ app.get('/api/stats', async (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         const result = await pool.query('SELECT * FROM user_stats WHERE user_id = $1', [decoded.id]);
         if (result.rows.length === 0) {
-            return res.json({ tictactoe_wins: 0, snake_record: 0, memory_best_time: '--:--' });
+            return res.json({ tictactoe_wins: 0, snake_record: 0, memory_best_time: '--:--', flappy_record: 0, minesweeper_record: '--:--' });
         }
         res.json(result.rows[0]);
     } catch (err) {
@@ -136,7 +140,7 @@ app.get('/api/stats', async (req, res) => {
 
 // Update User Stats
 app.post('/api/stats/update', async (req, res) => {
-    const { tictactoe_wins, snake_record, memory_best_time } = req.body;
+    const { tictactoe_wins, snake_record, memory_best_time, flappy_record, minesweeper_record } = req.body;
     const token = req.headers['authorization'];
     if (!token) return res.status(401).json({ error: 'No token provided' });
 
@@ -144,14 +148,16 @@ app.post('/api/stats/update', async (req, res) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         
         const query = `
-            INSERT INTO user_stats (user_id, tictactoe_wins, snake_record, memory_best_time)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO user_stats (user_id, tictactoe_wins, snake_record, memory_best_time, flappy_record, minesweeper_record)
+            VALUES ($1, $2, $3, $4, $5, $6)
             ON CONFLICT (user_id) DO UPDATE SET
                 tictactoe_wins = EXCLUDED.tictactoe_wins,
                 snake_record = EXCLUDED.snake_record,
-                memory_best_time = EXCLUDED.memory_best_time;
+                memory_best_time = EXCLUDED.memory_best_time,
+                flappy_record = EXCLUDED.flappy_record,
+                minesweeper_record = EXCLUDED.minesweeper_record;
         `;
-        await pool.query(query, [decoded.id, tictactoe_wins, snake_record, memory_best_time]);
+        await pool.query(query, [decoded.id, tictactoe_wins, snake_record, memory_best_time, flappy_record, minesweeper_record]);
         res.json({ message: 'Stats updated successfully' });
     } catch (err) {
         console.error(err);

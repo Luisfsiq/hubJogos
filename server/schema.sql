@@ -16,5 +16,7 @@ CREATE TABLE user_stats (
     tictactoe_wins INTEGER DEFAULT 0,
     snake_record INTEGER DEFAULT 0,
     memory_best_time VARCHAR(20) DEFAULT '--:--',
+    flappy_record INTEGER DEFAULT 0,
+    minesweeper_record VARCHAR(20) DEFAULT '--:--',
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
