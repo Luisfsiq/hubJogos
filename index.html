@@ -71,6 +71,10 @@
         <header class="top-bar">
             <div id="greeting">Bem-vindo, <span id="user-display-name">Convidado</span>!</div>
             <div class="stats-overview">
+                <div class="stat-pill casino-balance">
+                    <span class="icon">💰</span>
+                    <span id="global-balance" class="value" style="color: #10b981; font-weight:900;">1000</span><span class="currency"> SQC</span>
+                </div>
                 <div class="stat-pill">
                     <span class="label">Total de Vitórias</span>
                     <span id="global-wins" class="value">0</span>
@@ -110,6 +114,26 @@
                             <h3>Memória Master</h3>
                             <p>Treine seu cérebro e encontre todos os pares.</p>
                             <button class="play-btn">Jogar Agora</button>
+                        </div>
+                    </div>
+                </div>
+
+                <h2 style="margin-top: 3rem; color: #f59e0b;">Cassino e Sorte 🎰</h2>
+                <div class="game-grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+                    <div class="game-card casino-card" data-game="blackjack">
+                        <div class="card-image blackjack-bg" style="font-size:3rem; color:white; background:linear-gradient(135deg, #b91c1c, #991b1b); display:flex; justify-content:center; align-items:center;">♠️</div>
+                        <div class="card-info">
+                            <h3>Blackjack 21</h3>
+                            <p>Desafie o Dealer para multiplicar seus SQC. Atingir 21 é jackpot!</p>
+                            <button class="play-btn" style="background:#dc2626;">Apostar</button>
+                        </div>
+                    </div>
+                    <div class="game-card casino-card" data-game="double">
+                        <div class="card-image double-bg" style="font-size:3rem; color:white; background:linear-gradient(135deg, #1f2937, #030712); display:flex; justify-content:center; align-items:center;">⚪</div>
+                        <div class="card-info">
+                            <h3>Roleta Double</h3>
+                            <p>Gire as cores e faça fortunas. O lendário Branco paga 14x!</p>
+                            <button class="play-btn" style="background:#dc2626;">Apostar</button>
                         </div>
                     </div>
                 </div>
@@ -165,6 +189,10 @@
                 <div class="stat-box">
                     <span class="stat-label">Melhor Tempo da Memória</span>
                     <h3 class="stat-value" id="stat-memory">--:--</h3>
+                </div>
+                <div class="stat-box" style="border-color:#f59e0b;">
+                    <span class="stat-label" style="color:#f59e0b;">Faturamento Cassino</span>
+                    <h3 class="stat-value" id="stat-blackjack" style="color:#f59e0b;">0</h3>
                 </div>
             </div>
         </section>

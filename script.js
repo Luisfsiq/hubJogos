@@ -126,10 +126,13 @@ document.addEventListener("DOMContentLoaded", () => {
             currentUser.stats = {
                 tictactoe: result.tictactoe_wins,
                 snake: result.snake_record,
-                memory: result.memory_best_time
+                memory: result.memory_best_time,
+                balance: result.balance !== undefined ? result.balance : 1000,
+                blackjack_wins: result.blackjack_wins || 0
             };
             saveSession();
             renderStats();
+            updateCasinoUI();
         }
     }
 
@@ -141,11 +144,15 @@ document.addEventListener("DOMContentLoaded", () => {
             snake_record: s.snake,
             memory_best_time: s.memory
         });
+        await apiRequest("/stats/casino", "POST", {
+            balance: s.balance,
+            blackjack_wins: s.blackjack_wins
+        });
     }
 
     // --- Local Logic ---
     function simulateAuth(user) {
-        currentUser = { username: user, email: `${user}@demo.com`, stats: { tictactoe: 0, snake: 0, memory: "--:--" } };
+        currentUser = { username: user, email: `${user}@demo.com`, stats: { tictactoe: 0, snake: 0, memory: "--:--", balance: 1000, blackjack_wins: 0 } };
         saveSession();
         loginSuccess();
     }
@@ -185,11 +192,18 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (game === 'memory') {
             currentUser.stats.memory = value;
             changed = true;
+        } else if (game === 'blackjack') {
+            currentUser.stats.blackjack_wins += value; // 1 win
+            changed = true;
+        } else if (game === 'balance') {
+            currentUser.stats.balance += value; // value can be negative or positive
+            changed = true;
         }
 
         if (changed) {
             saveSession();
             renderStats();
+            updateCasinoUI();
             pushStats();
         }
     }
@@ -264,12 +278,24 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
+    function updateCasinoUI() {
+        const balanceEl = document.getElementById("global-balance");
+        if (balanceEl && currentUser && currentUser.stats && currentUser.stats.balance !== undefined) {
+            balanceEl.textContent = currentUser.stats.balance;
+        } else if (balanceEl) {
+            balanceEl.textContent = "1000";
+        }
+    }
+
     function renderStats() {
-        const stats = currentUser ? currentUser.stats : { tictactoe: 0, snake: 0, memory: "--:--" };
-        globalWinsDisp.textContent = stats.tictactoe;
-        statTicTacToe.textContent = stats.tictactoe;
-        statSnake.textContent = stats.snake;
-        statMemory.textContent = stats.memory;
+        const stats = currentUser ? currentUser.stats : { tictactoe: 0, snake: 0, memory: "--:--", blackjack_wins: 0 };
+        globalWinsDisp.textContent = (stats.tictactoe || 0) + (stats.blackjack_wins || 0);
+        statTicTacToe.textContent = stats.tictactoe || 0;
+        statSnake.textContent = stats.snake || 0;
+        statMemory.textContent = stats.memory || '--:--';
+        
+        const bjwEl = document.getElementById("stat-blackjack");
+        if(bjwEl) bjwEl.textContent = `$${(stats.blackjack_wins || 0) * 10}`;
     }
 
     function showToast(msg, type = "info") {
@@ -344,6 +370,8 @@ document.addEventListener("DOMContentLoaded", () => {
         if (id === 'tictactoe') { activeGameTitle.textContent = "Jogo da Velha"; initTicTacToe(); }
         else if (id === 'snake') { activeGameTitle.textContent = "Snake Retro"; initSnake(); }
         else if (id === 'memory') { activeGameTitle.textContent = "Memória Master"; initMemory(); }
+        else if (id === 'blackjack') { activeGameTitle.textContent = "Blackjack 21"; initBlackjack(); }
+        else if (id === 'double') { activeGameTitle.textContent = "Roleta Double"; initDouble(); }
     }
 
     function showGameOverlay(title, subtitle, onRetry) {
@@ -802,4 +830,269 @@ document.addEventListener("DOMContentLoaded", () => {
             }));
         }
     }
+// --- Casino Logic ---
+    function generateDeck() {
+        const suits = ['♠', '♥', '♦', '♣'];
+        const values = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+        let deck = [];
+        for(let s of suits) {
+            for(let v of values) {
+                let weight = parseInt(v);
+                if (v === 'J' || v === 'Q' || v === 'K') weight = 10;
+                if (v === 'A') weight = 11;
+                deck.push({ v, s, weight, clr: (s==='♥'||s==='♦') ? '#ef4444' : '#1e293b' });
+            }
+        }
+        return deck.sort(() => Math.random() - 0.5);
+    }
+
+    function renderCard(card) {
+        return `<div style="background:white; color:${card.clr}; border-radius:8px; padding:10px; width:70px; height:100px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 4px 6px rgba(0,0,0,0.3); font-weight:bold; font-size:1.2rem;">
+            <div style="text-align:left;">${card.v}</div>
+            <div style="font-size:2rem; text-align:center;">${card.s}</div>
+            <div style="text-align:right;">${card.v}</div>
+        </div>`;
+    }
+
+    function initBlackjack() {
+        gameArea.innerHTML = `<div class="casino-board" style="padding:20px; align-items:center; background: radial-gradient(circle at center, #065f46, #022c22); width:100%; height:100%;">
+            <div id="bj-overlay" class="game-overlay casino-overlay" style="z-index:50;">
+                <h2 style="color:#fbbf24; text-shadow:0 2px 10px rgba(0,0,0,0.5);">Blackjack 21</h2>
+                <div class="snake-settings" style="text-align:center;">
+                    <label>Sua Aposta (SQC)</label><br>
+                    <input type="number" id="bj-bet-input" value="50" min="10" max="1000" style="padding:10px; font-size:1.2rem; width:100%; max-width:200px; text-align:center; border-radius:8px; border:1px solid #78716c; margin-top:10px; background:#fafaf9;">
+                </div>
+                <button id="start-bj-btn" class="primary-btn mt-2" style="background:#dc2626; border-color:#b91c1c;">Apostar Mãos</button>
+            </div>
+            
+            <div id="bj-table" style="display:none; width:100%; height:100%; flex-direction:column; justify-content:space-between; padding:20px;">
+                <div class="bj-hand-container" style="text-align:center;">
+                    <h3 style="color:#d1d5db; margin-bottom:10px; font-size:1.5rem;">Banca <span id="bj-dealer-score" style="background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:10px;"></span></h3>
+                    <div id="bj-dealer-hand" style="display:flex; justify-content:center; gap:10px;"></div>
+                </div>
+                
+                <div class="bj-actions" style="display:flex; justify-content:center; gap:15px; margin:20px 0;">
+                    <button id="bj-hit" style="background:#3b82f6; border:none; padding:15px 30px; color:white; font-weight:bold; border-radius:8px; cursor:pointer;">COMPRAR (HIT)</button>
+                    <button id="bj-stand" style="background:#ef4444; border:none; padding:15px 30px; color:white; font-weight:bold; border-radius:8px; cursor:pointer;">PARAR (STAND)</button>
+                </div>
+
+                <div class="bj-hand-container" style="text-align:center;">
+                    <h3 style="color:#d1d5db; margin-bottom:10px; font-size:1.5rem;">Você <span id="bj-player-score" style="background:rgba(0,0,0,0.5); padding:5px 10px; border-radius:10px;"></span></h3>
+                    <div id="bj-player-hand" style="display:flex; justify-content:center; gap:10px;"></div>
+                </div>
+            </div>
+        </div>`;
+
+        let deck, playerHand, dealerHand, bet;
+
+        document.getElementById("start-bj-btn").addEventListener("click", () => {
+            bet = parseInt(document.getElementById("bj-bet-input").value);
+            if (!currentUser || typeof currentUser.stats.balance === 'undefined') {
+                showToast("Faça login (ou entre como convidado) para jogar Cassino.", "error"); return;
+            }
+            if (bet > currentUser.stats.balance || bet <= 0) {
+                showToast(`Saldo Insuficiente! Saldo: SQC${currentUser.stats.balance}`, "error"); return;
+            }
+            
+            saveStat('balance', -bet); // Remove a aposta
+            
+            document.getElementById("bj-overlay").style.display = "none";
+            document.getElementById("bj-table").style.display = "flex";
+            startBJRound();
+        });
+
+        function calcScore(hand) {
+            let score = 0; let aces = 0;
+            hand.forEach(c => { score += c.weight; if (c.v === 'A') aces++; });
+            while (score > 21 && aces > 0) { score -= 10; aces--; }
+            return score;
+        }
+
+        function renderHands(hideDealer = true) {
+            document.getElementById("bj-player-hand").innerHTML = playerHand.map(renderCard).join('');
+            document.getElementById("bj-player-score").textContent = calcScore(playerHand);
+
+            let dHTML = "";
+            if (hideDealer) {
+                dHTML = renderCard(dealerHand[0]) + `<div style="background:linear-gradient(45deg, #dc2626, #991b1b); border:2px solid white; border-radius:8px; width:70px; height:100px; box-shadow:0 4px 6px rgba(0,0,0,0.3);"></div>`;
+                document.getElementById("bj-dealer-score").textContent = "?";
+            } else {
+                dHTML = dealerHand.map(renderCard).join('');
+                document.getElementById("bj-dealer-score").textContent = calcScore(dealerHand);
+            }
+            document.getElementById("bj-dealer-hand").innerHTML = dHTML;
+        }
+
+        function startBJRound() {
+            deck = generateDeck();
+            playerHand = [deck.pop(), deck.pop()];
+            dealerHand = [deck.pop(), deck.pop()];
+            
+            // Check Natural 21
+            if (calcScore(playerHand) === 21) {
+                renderHands(false);
+                endBJRound("BLACKJACK!", 'win', 2.5); // 2.5x total retorno
+                return;
+            }
+            
+            renderHands(true);
+            toggleActions(true);
+        }
+
+        function toggleActions(state) {
+            document.getElementById("bj-hit").disabled = !state;
+            document.getElementById("bj-stand").disabled = !state;
+        }
+
+        document.getElementById("bj-hit").addEventListener("click", () => {
+            playerHand.push(deck.pop());
+            renderHands(true);
+            const score = calcScore(playerHand);
+            if (score > 21) endBJRound("VOCÊ ESTOUROU! (BUST)", 'lose', 0);
+            else if (score === 21) standLogic();
+        });
+
+        document.getElementById("bj-stand").addEventListener("click", standLogic);
+
+        function standLogic() {
+            toggleActions(false);
+            renderHands(false);
+            
+            const pScore = calcScore(playerHand);
+            
+            // Dealer auto-draw
+            let iv = setInterval(() => {
+                let dScore = calcScore(dealerHand);
+                if (dScore < 17) {
+                    dealerHand.push(deck.pop());
+                    renderHands(false);
+                } else {
+                    clearInterval(iv);
+                    dScore = calcScore(dealerHand);
+                    if (dScore > 21) endBJRound("A BANCA ESTOUROU! VOCÊ VENCEU!", 'win', 2);
+                    else if (dScore > pScore) endBJRound("A BANCA VENCEU", 'lose', 0);
+                    else if (pScore > dScore) endBJRound("VOCÊ VENCEU!", 'win', 2);
+                    else endBJRound("EMPATE! DEVOLUÇÃO", 'tie', 1);
+                }
+            }, 800);
+        }
+
+        function endBJRound(msg, res, mult) {
+            toggleActions(false);
+            renderHands(false);
+            
+            setTimeout(() => {
+                if (mult > 0) saveStat('balance', Math.floor(bet * mult));
+                if (res === 'win') saveStat('blackjack', 1);
+                
+                showGameOverlay(msg, res === 'win' || res === 'tie' ? `Retorno: SQC ${Math.floor(bet * mult)}` : `Você perdeu SQC ${bet}.`, initBlackjack);
+            }, 1000);
+        }
+    }
+
+    function initDouble() {
+        gameArea.innerHTML = `<div class="casino-board" style="align-items:center;  background: radial-gradient(circle at top, #1f2937, #030712); width:100%; height:100%; display:flex; flex-direction:column; justify-content:center;">
+            <div style="width:100%; padding:20px; text-align:center; max-width:800px; margin:0 auto;">
+                <h2 style="color:white; margin-bottom:20px; font-size:2rem; font-weight:900;">DOUBLE <span style="color:#d1d5db;">ROULETTE</span></h2>
+                
+                <!-- Roleta Visor -->
+                <div class="roleta-wrapper" style="width:100%; height:120px; background:#0f172a; border-radius:10px; overflow:hidden; position:relative; display:flex; align-items:center; border:2px solid #334155; box-shadow:inset 0 0 20px rgba(0,0,0,0.8);">
+                    <div class="roleta-cursor" style="position:absolute; width:4px; height:120px; background:#fbbf24; left:50%; z-index:10; box-shadow:0 0 10px #fbbf24;"></div>
+                    <div class="roleta-track" id="roleta-track" style="display:flex; height:100px; gap:5px; position:absolute; left:50%;">
+                        <!-- Tiles injected here -->
+                    </div>
+                </div>
+
+                <!-- Painel de Apostas -->
+                <div class="double-bet-panel" style="margin-top:30px;">
+                    <div style="margin-bottom:20px;">
+                        <input type="number" id="double-bet-input" value="10" min="5" style="padding:15px; border-radius:8px; border:none; font-size:1.2rem; font-weight:bold; text-align:center; width:100%; max-width:300px;">
+                    </div>
+                    
+                    <div class="double-buttons" style="display:flex; justify-content:center; gap:20px; flex-wrap:wrap;">
+                        <button class="double-bet-btn" data-color="red" style="padding:15px 30px; border-radius:10px; border:none; background:#ef4444; color:white; font-size:1.2rem; cursor:pointer; font-weight:bold; box-shadow:0 4px 15px rgba(239,68,68,0.5);">VERMELHO (2X)</button>
+                        <button class="double-bet-btn" data-color="white" style="padding:15px 30px; border-radius:10px; border:none; background:#f8fafc; color:#0f172a; font-size:1.2rem; cursor:pointer; font-weight:bold; box-shadow:0 4px 15px rgba(255,255,255,0.4);">BRANCO (14X)</button>
+                        <button class="double-bet-btn" data-color="black" style="padding:15px 30px; border-radius:10px; border:none; background:#1e293b; color:white; font-size:1.2rem; cursor:pointer; font-weight:bold; border:2px solid #475569;">PRETO (2X)</button>
+                    </div>
+                </div>
+            </div>
+            <div id="double-overlay" class="game-overlay" style="display:none; background:rgba(0,0,0,0.85); z-index:100;"></div>
+        </div>`;
+
+        const track = document.getElementById("roleta-track");
+        const order = ['red', 'black', 'red', 'black', 'white', 'black', 'red', 'black', 'red', 'black', 'red', 'white', 'black', 'red'];
+        
+        let tilesHtml = "";
+        for(let i=0; i<100; i++) {
+            let color = order[i % order.length];
+            let bg = color === 'red' ? '#ef4444' : (color === 'black' ? '#1e293b' : '#f8fafc');
+            tilesHtml += `<div style="background:${bg}; width:80px; height:100px; border-radius:8px; display:flex; justify-content:center; align-items:center; flex-shrink:0;">
+                <span style="color:${color==='white'?'#0f172a':'white'}; font-size:2rem;">${color==='white'?'⚪':(color==='red'?'🔴':'⚫')}</span>
+            </div>`;
+        }
+        track.innerHTML = tilesHtml;
+
+        document.querySelectorAll(".double-bet-btn").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const bet = parseInt(document.getElementById("double-bet-input").value);
+                const colorObj = btn.dataset.color;
+                
+                if (!currentUser || typeof currentUser.stats.balance === 'undefined') {
+                    showToast("Faça login para apostar.", "error"); return;
+                }
+                if (bet > currentUser.stats.balance || bet <= 0) {
+                    showToast("Saldo Insuficiente!", "error"); return;
+                }
+
+                saveStat('balance', -bet); 
+                document.querySelectorAll(".double-bet-btn").forEach(b => b.disabled = true);
+                
+                const winningIndex = 50 + Math.floor(Math.random() * 20);
+                const chosenTileColor = order[winningIndex % order.length];
+                
+                // offset center adjustment: tile width 80 + 5 gap = 85.
+                // Left is 50%. The track starts at 50%.
+                // So shifting left (-translateX) by winningIndex * 85 + 42.5 (half tile) will put winning tile under the 50% cursor perfectly.
+                const randomStopVariance = Math.floor(Math.random() * 60) - 30; // +/- 30px drift
+                const deslocamento = (winningIndex * 85) + 42.5 + randomStopVariance;
+
+                track.style.transition = 'transform 6s cubic-bezier(0.1, 0.7, 0.1, 1)';
+                track.style.transform = `translateX(-${deslocamento}px)`;
+
+                setTimeout(() => {
+                    document.querySelectorAll(".double-bet-btn").forEach(b => b.disabled = false);
+                    track.style.transition = 'none'; 
+                    
+                    let resultMsg = "";
+                    let isWin = false; let mult = 0;
+                    if (chosenTileColor === colorObj) {
+                        isWin = true;
+                        mult = colorObj === 'white' ? 14 : 2;
+                        resultMsg = `VOCÊ GANHOU SQC ${bet * mult}!`;
+                        saveStat('balance', bet * mult);
+                        showToast(`Vitória Histórica! +${bet*mult} SQC`, "success");
+                    } else {
+                        resultMsg = `Você perdeu SQC ${bet}. Caiu no ${chosenTileColor.toUpperCase()}`;
+                    }
+                    
+                    const dov = document.getElementById("double-overlay");
+                    dov.innerHTML = `
+                        <h2 style="color:${isWin ? '#10b981' : '#ef4444'}; font-size:3rem; text-shadow:0 0 20px rgba(0,0,0,0.8); margin-bottom:20px;">${isWin ? 'VITÓRIA MAX!' : 'PERDEU'}</h2>
+                        <p style="color:white; font-size:1.5rem; margin:10px 0 20px;">${resultMsg}</p>
+                        <button class="primary-btn mt-2" id="double-continue">CONTINUAR</button>
+                    `;
+                    dov.style.display = 'flex';
+                    dov.style.flexDirection = 'column';
+                    
+                    document.getElementById('double-continue').addEventListener("click", () => {
+                        dov.style.display='none'; 
+                        track.style.transform='translateX(0)';
+                    });
+                    
+                }, 6300); 
+            });
+        });
+
+    }
+
 });

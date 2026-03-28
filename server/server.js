@@ -31,9 +31,14 @@ const initDB = async () => {
                 user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
                 tictactoe_wins INTEGER DEFAULT 0,
                 snake_record INTEGER DEFAULT 0,
-                memory_best_time VARCHAR(10) DEFAULT '--:--'
+                memory_best_time VARCHAR(10) DEFAULT '--:--',
+                balance INTEGER DEFAULT 1000,
+                blackjack_wins INTEGER DEFAULT 0
             );
         `);
+        // Migrations on fly to guarantee new fields
+        try { await pool.query(`ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS balance INTEGER DEFAULT 1000;`); } catch(e){}
+        try { await pool.query(`ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS blackjack_wins INTEGER DEFAULT 0;`); } catch(e){}
         console.log("Database initialized successfully.");
     } catch (err) {
         console.error("Error initializing database:", err);
@@ -151,6 +156,30 @@ app.post('/api/stats/update', async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Update Casino Specific Stats (Balance + Blackjack)
+app.post('/api/stats/casino', async (req, res) => {
+    const { balance, blackjack_wins } = req.body;
+    const token = req.headers['authorization'];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+
+    try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        
+        // Dynamically update fields without overwriting each other
+        if (balance !== undefined) {
+             await pool.query('UPDATE user_stats SET balance = $1 WHERE user_id = $2', [balance, decoded.id]);
+        }
+        if (blackjack_wins !== undefined) {
+             await pool.query('UPDATE user_stats SET blackjack_wins = $1 WHERE user_id = $2', [blackjack_wins, decoded.id]);
+        }
+        
+        res.json({ message: 'Casino stats saved successfully' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao salvar fundos do cassino' });
     }
 });
 
